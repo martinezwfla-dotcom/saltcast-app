@@ -1,6 +1,6 @@
 # Saltcast Florida
 
-The iPhone app for [saltcastflorida.com](https://saltcastflorida.com). It tells you whether it's a good time to go fishing, surfing, diving, boating, sailing, or paddling at 20 spots around Florida, and when the best times are in the next 48 hours.
+The iPhone app for [saltcastflorida.com](https://saltcastflorida.com). It tells you whether it's a good time to go fishing, surfing, diving, boating, sailing, or paddling at 21 spots around Florida, and when the best times are in the next 48 hours.
 
 Built with Expo (React Native). iPhone builds run in the cloud on EAS, so no Mac is needed.
 
@@ -10,7 +10,7 @@ Built with Expo (React Native). iPhone builds run in the cloud on EAS, so no Mac
 | --- | --- |
 | Today | A Go, Maybe, or No Go verdict for the chosen activity and spot, with wind, seas, swell, water temperature, weather, tides, and the next 12 hours |
 | Best Times | The best daylight windows in the next 48 hours, tap one for hour by hour detail |
-| Spots | 20 spots in the Gulf, Keys, Atlantic, and Panhandle regions, favorites, and units |
+| Spots | 21 spots in the Gulf, Keys, Atlantic, and Panhandle regions, favorites, and units |
 | Radar | A live radar map from Windy, centered on the chosen spot |
 | Dock Talk | Tips for each activity and the seasonal outlook |
 

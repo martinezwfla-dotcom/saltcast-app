@@ -22,7 +22,7 @@ Pick your activity, whether it's fishing, surfing, diving and snorkeling, boatin
 - Wind, gusts, seas, swell, and water temperature
 - High and low tides from NOAA
 - Live radar
-- 20 spots across the Gulf, Keys, Atlantic, and Panhandle
+- 21 spots across the Gulf, Keys, Atlantic, and Panhandle
 - Save your favorite spots
 - Dock Talk, with local tips and the seasonal outlook
 

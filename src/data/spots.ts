@@ -18,6 +18,7 @@ export type Spot = {
 const Stations = {
   fernandina: { id: '8720030', name: 'Fernandina Beach' },
   mayport: { id: '8720218', name: 'Mayport' },
+  ponceInlet: { id: '8721147', name: 'Ponce de Leon Inlet South' },
   trident: { id: '8721604', name: 'Trident Pier, Port Canaveral' },
   lakeWorth: { id: '8722670', name: 'Lake Worth Pier' },
   virginiaKey: { id: '8723214', name: 'Virginia Key' },
@@ -37,6 +38,7 @@ export const Spots: Spot[] = [
   // Atlantic
   { id: 'fernandina', name: 'Fernandina Beach', region: 'Atlantic', lat: 30.67, lon: -81.41, facing: 90, tideStation: Stations.fernandina },
   { id: 'jax-beach', name: 'Jacksonville Beach', region: 'Atlantic', lat: 30.29, lon: -81.37, facing: 90, tideStation: Stations.mayport },
+  { id: 'new-smyrna', name: 'New Smyrna Beach', region: 'Atlantic', lat: 29.03, lon: -80.88, facing: 75, tideStation: Stations.ponceInlet },
   { id: 'cocoa-beach', name: 'Cocoa Beach', region: 'Atlantic', lat: 28.32, lon: -80.58, facing: 90, tideStation: Stations.trident },
   { id: 'sebastian', name: 'Sebastian Inlet', region: 'Atlantic', lat: 27.86, lon: -80.42, facing: 75, tideStation: Stations.trident },
   { id: 'palm-beach', name: 'Palm Beach', region: 'Atlantic', lat: 26.71, lon: -80.01, facing: 90, tideStation: Stations.lakeWorth },
