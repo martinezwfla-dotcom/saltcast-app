@@ -25,6 +25,11 @@ Use Command Prompt, not PowerShell, because PowerShell can block these commands.
 Type each line, press Enter, and wait for it to finish before you type the next one.
 
 ```
+set EAS_NO_VCS=1
+```
+This tells the build tool you downloaded a zip, so it doesn't need Git. If you close the window and open a new one, run this line again first.
+
+```
 npm install
 ```
 
