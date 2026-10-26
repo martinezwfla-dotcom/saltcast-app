@@ -1,7 +1,7 @@
 import type { Activity } from '@/data/activities';
 import type { Spot } from '@/data/spots';
 import type { Forecast, HourForecast } from '@/lib/forecast';
-import { rateHour, verdictRank, type HourVerdict } from '@/lib/verdict';
+import { rateHour, verdictRank, type HourVerdict, type Verdict } from '@/lib/verdict';
 
 export type DaySummary = {
   /** Start of the day's first forecast hour. */
@@ -18,6 +18,13 @@ export type DaySummary = {
   waveMax: number | null;
   /** The best daylight hour for the activity. */
   best?: { hour: HourForecast; rating: HourVerdict };
+  /**
+   * The rating for most of the daylight hours, leaning to the worse one.
+   * A calm morning doesn't make a windy afternoon a Go.
+   */
+  verdict?: Verdict;
+  /** The longest daylight stretch at the best hour's verdict, when it beats the day's rating. */
+  window?: { start: number; end: number; verdict: Verdict };
 };
 
 const max = (xs: (number | null)[]) => {
@@ -73,9 +80,9 @@ export function summarizeDays(forecast: Forecast, activity: Activity, spot: Spot
       const daylight = relevant.filter((h) => h.isDay);
       const pick = daylight.length ? daylight : relevant;
 
+      const rated = daylight.map((hour) => ({ hour, rating: rateHour(hour, activity, spot) }));
       let best: DaySummary['best'];
-      for (const hour of daylight) {
-        const rating = rateHour(hour, activity, spot);
+      for (const { hour, rating } of rated) {
         if (
           !best ||
           verdictRank(rating.verdict) > verdictRank(best.rating.verdict) ||
@@ -83,6 +90,26 @@ export function summarizeDays(forecast: Forecast, activity: Activity, spot: Spot
         ) {
           best = { hour, rating };
         }
+      }
+
+      const ranks = rated.map((r) => verdictRank(r.rating.verdict)).sort((a, b) => a - b);
+      const verdict = rated.length ? rated.find((r) => verdictRank(r.rating.verdict) === ranks[Math.floor((ranks.length - 1) / 2)])!.rating.verdict : undefined;
+
+      let window: DaySummary['window'];
+      if (best && verdict && verdictRank(best.rating.verdict) > verdictRank(verdict)) {
+        let run: HourForecast[] = [];
+        let longest: HourForecast[] = [];
+        for (const { hour, rating } of rated) {
+          const adjacent = run.length && hour.time - run[run.length - 1].time <= 3600 * 1000;
+          if (rating.verdict === best.rating.verdict) run = adjacent ? [...run, hour] : [hour];
+          else run = [];
+          if (run.length > longest.length) longest = run;
+        }
+        window = {
+          start: longest[0].time,
+          end: longest[longest.length - 1].time + 3600 * 1000,
+          verdict: best.rating.verdict,
+        };
       }
 
       return {
@@ -96,6 +123,8 @@ export function summarizeDays(forecast: Forecast, activity: Activity, spot: Spot
         windDir: averageDirection(pick),
         waveMax: max(pick.map((h) => h.waveHeight)),
         best,
+        verdict,
+        window,
       };
     });
 }

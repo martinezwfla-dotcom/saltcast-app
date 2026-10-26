@@ -8,7 +8,7 @@ import type { Spot } from '@/data/spots';
 import type { DaySummary } from '@/lib/daily';
 import type { Forecast, HourForecast, TideEvent } from '@/lib/forecast';
 import { clock, compass, dayLabel, height, temperature, weatherShort, weatherSymbol, weatherText, windSpeed, type Units } from '@/lib/format';
-import { rateHour, windRelation } from '@/lib/verdict';
+import { rateHour, VerdictLabel, windRelation } from '@/lib/verdict';
 
 const C = Colors.dark;
 
@@ -209,10 +209,14 @@ export function DailyForecast({
               </ThemedText>
             </View>
             <View style={styles.dayMiddle}>
-              {d.best ? (
+              {d.verdict ? (
                 <View style={styles.dayVerdict}>
-                  <VerdictPill verdict={d.best.rating.verdict} />
-                  {d.best.rating.verdict !== 'nogo' ? (
+                  <VerdictPill verdict={d.verdict} />
+                  {d.window ? (
+                    <ThemedText type="smallBold" style={[styles.noWrap, { color: VerdictColor[d.window.verdict] }]}>
+                      {VerdictLabel[d.window.verdict]} {clock(d.window.start, utcOffset)} to {clock(d.window.end, utcOffset)}
+                    </ThemedText>
+                  ) : d.best && d.verdict !== 'nogo' ? (
                     <ThemedText type="small" themeColor="textSecondary">
                       best {clock(d.best.hour.time, utcOffset)}
                     </ThemedText>
@@ -276,6 +280,7 @@ const styles = StyleSheet.create({
   dayDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border },
   dayName: { width: 88, gap: 4 },
   dayMiddle: { flex: 1, gap: 4 },
-  dayVerdict: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  dayVerdict: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Spacing.one, columnGap: Spacing.two },
+  noWrap: { flexShrink: 0 },
   dayTemps: { alignItems: 'flex-end', gap: 2 },
 });
