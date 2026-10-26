@@ -4,7 +4,7 @@ import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, View } from '
 
 import { ConditionsGrid, DailyForecast, HourlyStrip, TideCard } from '@/components/conditions';
 import { ThemedText } from '@/components/themed-text';
-import { ActivityPicker, Card, Disclaimer, Icon, Screen, VerdictPill } from '@/components/ui';
+import { ActivityPicker, Card, Disclaimer, Icon, openWebsite, Screen, VerdictPill, WebsiteButton } from '@/components/ui';
 import { Colors, Spacing } from '@/constants/theme';
 import { getActivity } from '@/data/activities';
 import { getSpot } from '@/data/spots';
@@ -32,12 +32,9 @@ export default function TodayScreen() {
   return (
     <Screen refreshControl={<RefreshControl refreshing={loading && !!forecast} onRefresh={refresh} tintColor={Colors.dark.accent} />}>
       <View style={styles.header}>
-        <Image
-          source={require('@/assets/images/logo-header.png')}
-          style={styles.logo}
-          contentFit="contain"
-          accessibilityLabel="Saltcast Florida"
-        />
+        <Pressable onPress={openWebsite} accessibilityRole="link" accessibilityLabel="Saltcast Florida, opens saltcastflorida.com">
+          <Image source={require('@/assets/images/logo-header.png')} style={styles.logo} contentFit="contain" />
+        </Pressable>
         <Pressable onPress={() => router.navigate('/spots')} style={styles.spotButton} accessibilityRole="button">
           <Icon name="mappin.and.ellipse" size={16} />
           <View>
@@ -116,6 +113,7 @@ export default function TodayScreen() {
         </>
       ) : null}
 
+      <WebsiteButton />
       <Disclaimer />
     </Screen>
   );

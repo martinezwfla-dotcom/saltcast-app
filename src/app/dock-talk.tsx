@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { ActivityPicker, Card, Disclaimer, Header, Icon, Screen } from '@/components/ui';
+import { ActivityPicker, Card, Disclaimer, Header, Icon, Screen, WebsiteButton } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
 import { getActivity, SeasonalOutlook } from '@/data/activities';
 import { useSettings } from '@/state/settings';
@@ -22,6 +22,7 @@ export default function DockTalkScreen() {
   return (
     <Screen>
       <Header title="Dock Talk" subtitle="Local know-how for Florida waters" />
+      <WebsiteButton />
       <ActivityPicker value={activityId} onChange={setActivity} />
 
       <Card>

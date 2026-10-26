@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { ActivityPicker, Card, Disclaimer, Header, Icon, Screen, VerdictColor, VerdictPill } from '@/components/ui';
+import { ActivityPicker, Card, Disclaimer, Header, Icon, Screen, VerdictColor, VerdictPill, WebsiteButton } from '@/components/ui';
 import { Colors, Spacing } from '@/constants/theme';
 import { getActivity } from '@/data/activities';
 import { getSpot } from '@/data/spots';
@@ -77,6 +77,7 @@ export default function BestTimesScreen() {
         })
       )}
 
+      <WebsiteButton />
       <Disclaimer />
     </Screen>
   );

@@ -1,4 +1,5 @@
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
+import * as WebBrowser from 'expo-web-browser';
 import { type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, View, type ViewProps } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -89,6 +90,34 @@ export function ActivityPicker({ value, onChange }: { value: ActivityId; onChang
   );
 }
 
+export const WebsiteUrl = 'https://saltcastflorida.com';
+
+export function openWebsite() {
+  WebBrowser.openBrowserAsync(WebsiteUrl);
+}
+
+/** A full-width button that opens saltcastflorida.com. */
+export function WebsiteButton() {
+  return (
+    <Pressable
+      onPress={openWebsite}
+      accessibilityRole="link"
+      accessibilityLabel="Visit saltcastflorida.com"
+      style={({ pressed }) => [styles.website, pressed && { opacity: 0.8 }]}>
+      <Icon name="globe" size={20} color={C.background} />
+      <View style={{ flex: 1 }}>
+        <ThemedText type="smallBold" style={{ color: C.background }}>
+          Visit saltcastflorida.com
+        </ThemedText>
+        <ThemedText type="small" style={{ color: C.background, opacity: 0.8 }}>
+          Full outlook, radar, and more
+        </ThemedText>
+      </View>
+      <Icon name="arrow.up.right" size={16} color={C.background} />
+    </Pressable>
+  );
+}
+
 export function Disclaimer() {
   return (
     <ThemedText type="small" themeColor="textSecondary" style={styles.disclaimer}>
@@ -135,5 +164,14 @@ const styles = StyleSheet.create({
     borderColor: C.border,
   },
   chipSelected: { backgroundColor: C.accent, borderColor: C.accent },
+  website: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    backgroundColor: C.accent,
+    borderRadius: 16,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: 12,
+  },
   disclaimer: { textAlign: 'center', paddingHorizontal: Spacing.two },
 });
