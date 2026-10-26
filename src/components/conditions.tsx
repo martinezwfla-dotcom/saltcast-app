@@ -7,7 +7,7 @@ import type { Activity } from '@/data/activities';
 import type { Spot } from '@/data/spots';
 import type { DaySummary } from '@/lib/daily';
 import type { Forecast, HourForecast, TideEvent } from '@/lib/forecast';
-import { clock, compass, dayLabel, height, temperature, weatherSymbol, weatherText, windSpeed, type Units } from '@/lib/format';
+import { clock, compass, dayLabel, height, temperature, weatherShort, weatherSymbol, weatherText, windSpeed, type Units } from '@/lib/format';
 import { rateHour, windRelation } from '@/lib/verdict';
 
 const C = Colors.dark;
@@ -41,6 +41,15 @@ function Stat({
   );
 }
 
+/** An arrow pointing the way the wind blows. Wind direction says where it comes from, so add 180°. */
+function WindArrow({ deg, size }: { deg: number; size: number }) {
+  return (
+    <View style={{ transform: [{ rotate: `${(deg + 180) % 360}deg` }] }}>
+      <Icon name="location.north.fill" size={size} color={C.textSecondary} />
+    </View>
+  );
+}
+
 export function ConditionsGrid({ hour, spot, units }: { hour: HourForecast; spot: Spot; units: Units }) {
   const relation = hour.windDir != null ? windRelation(hour.windDir, spot.facing) : null;
   return (
@@ -68,7 +77,7 @@ export function ConditionsGrid({ hour, spot, units }: { hour: HourForecast; spot
         icon={weatherSymbol(hour.weatherCode, hour.isDay)}
         label="Weather"
         value={temperature(hour.airTemp, units)}
-        detail={`${weatherText(hour.weatherCode)}${hour.precipChance != null ? `, ${hour.precipChance}% rain` : ''}`}
+        detail={`${weatherText(hour.weatherCode, hour.isDay)}${hour.precipChance != null ? `, ${hour.precipChance}% rain` : ''}`}
       />
     </View>
   );
@@ -145,7 +154,17 @@ export function HourlyStrip({
               {clock(h.time, utcOffset)}
             </ThemedText>
             <View style={[styles.dot, { backgroundColor: VerdictColor[r.verdict] }]} />
+            <Icon name={weatherSymbol(h.weatherCode, h.isDay)} size={20} color={C.text} />
+            <ThemedText type="small" themeColor="textSecondary">
+              {weatherShort(h.weatherCode, h.isDay)}
+            </ThemedText>
             <ThemedText type="smallBold">{windSpeed(h.wind, units)}</ThemedText>
+            <View style={styles.rain}>
+              {h.windDir != null ? <WindArrow deg={h.windDir} size={10} /> : null}
+              <ThemedText type="small" themeColor="textSecondary">
+                {compass(h.windDir)}
+              </ThemedText>
+            </View>
             <ThemedText type="small" themeColor="textSecondary">
               {height(h.waveHeight, units)}
             </ThemedText>
@@ -185,6 +204,9 @@ export function DailyForecast({
             <View style={styles.dayName}>
               <ThemedText type="smallBold">{dayLabel(d.time, utcOffset, now)}</ThemedText>
               <Icon name={weatherSymbol(d.weatherCode, true)} size={22} color={C.text} />
+              <ThemedText type="small" themeColor="textSecondary">
+                {weatherText(d.weatherCode)}
+              </ThemedText>
             </View>
             <View style={styles.dayMiddle}>
               {d.best ? (
@@ -201,8 +223,14 @@ export function DailyForecast({
                   After dark
                 </ThemedText>
               )}
+              <View style={styles.rain}>
+                {d.windDir != null ? <WindArrow deg={d.windDir} size={11} /> : null}
+                <ThemedText type="small" themeColor="textSecondary">
+                  Wind {compass(d.windDir)} {wind}
+                </ThemedText>
+              </View>
               <ThemedText type="small" themeColor="textSecondary">
-                {wind} · seas to {height(d.waveMax, units)}
+                Seas to {height(d.waveMax, units)}
               </ThemedText>
               <View style={styles.rain}>
                 <Icon name="drop.fill" size={11} color={C.accent} />
@@ -239,14 +267,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 12,
     backgroundColor: C.backgroundElement,
-    minWidth: 62,
+    minWidth: 76,
   },
   dot: { width: 12, height: 12, borderRadius: 6 },
   rain: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   daily: { paddingVertical: Spacing.one, gap: 0 },
   dayRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingVertical: 10 },
   dayDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border },
-  dayName: { width: 76, gap: 4 },
+  dayName: { width: 88, gap: 4 },
   dayMiddle: { flex: 1, gap: 4 },
   dayVerdict: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   dayTemps: { alignItems: 'flex-end', gap: 2 },

@@ -56,18 +56,32 @@ export function timeRange(start: number, end: number, utcOffset: number, now: nu
 }
 
 /** WMO weather codes, as used by Open-Meteo. */
-export function weatherText(code: number | null) {
+export function weatherText(code: number | null, isDay = true) {
   if (code == null) return 'Unknown';
-  if (code === 0) return 'Clear';
-  if (code <= 2) return 'Partly cloudy';
+  if (code === 0) return isDay ? 'Sunny' : 'Clear';
+  if (code === 1) return isDay ? 'Mostly sunny' : 'Mostly clear';
+  if (code === 2) return 'Partly cloudy';
   if (code === 3) return 'Cloudy';
-  if (code <= 48) return 'Fog';
+  if (code <= 48) return 'Foggy';
   if (code <= 57) return 'Drizzle';
   if (code <= 67) return 'Rain';
   if (code <= 77) return 'Snow';
   if (code <= 82) return 'Showers';
   if (code <= 86) return 'Snow showers';
   return 'Thunderstorms';
+}
+
+/** A one or two word version of weatherText that fits the hourly cards. */
+export function weatherShort(code: number | null, isDay = true) {
+  if (code == null) return '--';
+  if (code <= 1) return isDay ? 'Sunny' : 'Clear';
+  if (code === 2) return 'Pt. cloudy';
+  if (code === 3) return 'Cloudy';
+  if (code <= 48) return 'Foggy';
+  if (code <= 57) return 'Drizzle';
+  if (code <= 67) return 'Rain';
+  if (code <= 86) return 'Showers';
+  return 'Storms';
 }
 
 export function weatherSymbol(code: number | null, isDay: boolean) {
