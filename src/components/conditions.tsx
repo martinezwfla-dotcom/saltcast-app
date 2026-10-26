@@ -149,6 +149,12 @@ export function HourlyStrip({
             <ThemedText type="small" themeColor="textSecondary">
               {height(h.waveHeight, units)}
             </ThemedText>
+            <View style={styles.rain}>
+              <Icon name="drop.fill" size={10} color={C.accent} />
+              <ThemedText type="small" style={{ color: C.accent }}>
+                {h.precipChance != null ? `${h.precipChance}%` : '--'}
+              </ThemedText>
+            </View>
           </View>
         );
       })}
@@ -197,8 +203,13 @@ export function DailyForecast({
               )}
               <ThemedText type="small" themeColor="textSecondary">
                 {wind} · seas to {height(d.waveMax, units)}
-                {d.precipChance != null && d.precipChance >= 20 ? ` · ${d.precipChance}% rain` : ''}
               </ThemedText>
+              <View style={styles.rain}>
+                <Icon name="drop.fill" size={11} color={C.accent} />
+                <ThemedText type="small" style={{ color: C.accent }}>
+                  {d.precipChance != null ? `${d.precipChance}% chance of rain` : 'Rain chance unavailable'}
+                </ThemedText>
+              </View>
             </View>
             <View style={styles.dayTemps}>
               <ThemedText type="smallBold">{temperature(d.high, units)}</ThemedText>
@@ -231,6 +242,7 @@ const styles = StyleSheet.create({
     minWidth: 62,
   },
   dot: { width: 12, height: 12, borderRadius: 6 },
+  rain: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   daily: { paddingVertical: Spacing.one, gap: 0 },
   dayRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingVertical: 10 },
   dayDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border },

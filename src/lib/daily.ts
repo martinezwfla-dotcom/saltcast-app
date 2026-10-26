@@ -65,7 +65,7 @@ export function summarizeDays(forecast: Forecast, activity: Activity, spot: Spot
         high: max(hours.map((h) => h.airTemp)),
         low: min(hours.map((h) => h.airTemp)),
         weatherCode: max(pick.map((h) => h.weatherCode)),
-        precipChance: max(pick.map((h) => h.precipChance)),
+        precipChance: max(relevant.map((h) => h.precipChance)),
         windMin: min(pick.map((h) => h.wind)),
         windMax: max(pick.map((h) => h.wind)),
         waveMax: max(pick.map((h) => h.waveHeight)),
