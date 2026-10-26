@@ -1,9 +1,10 @@
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { ConditionsGrid, DailyForecast, HourlyStrip, TideCard } from '@/components/conditions';
 import { ThemedText } from '@/components/themed-text';
-import { ActivityPicker, Card, Disclaimer, Header, Icon, Screen, VerdictPill } from '@/components/ui';
+import { ActivityPicker, Card, Disclaimer, Icon, Screen, VerdictPill } from '@/components/ui';
 import { Colors, Spacing } from '@/constants/theme';
 import { getActivity } from '@/data/activities';
 import { getSpot } from '@/data/spots';
@@ -30,21 +31,23 @@ export default function TodayScreen() {
 
   return (
     <Screen refreshControl={<RefreshControl refreshing={loading && !!forecast} onRefresh={refresh} tintColor={Colors.dark.accent} />}>
-      <Header
-        title="Saltcast"
-        subtitle="Florida water conditions"
-        right={
-          <Pressable onPress={() => router.navigate('/spots')} style={styles.spotButton} accessibilityRole="button">
-            <Icon name="mappin.and.ellipse" size={16} />
-            <View>
-              <ThemedText type="smallBold">{spot.name}</ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                {spot.region}
-              </ThemedText>
-            </View>
-          </Pressable>
-        }
-      />
+      <View style={styles.header}>
+        <Image
+          source={require('@/assets/images/logo-header.png')}
+          style={styles.logo}
+          contentFit="contain"
+          accessibilityLabel="Saltcast Florida"
+        />
+        <Pressable onPress={() => router.navigate('/spots')} style={styles.spotButton} accessibilityRole="button">
+          <Icon name="mappin.and.ellipse" size={16} />
+          <View>
+            <ThemedText type="smallBold">{spot.name}</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              {spot.region}
+            </ThemedText>
+          </View>
+        </Pressable>
+      </View>
 
       <ActivityPicker value={activityId} onChange={setActivity} />
 
@@ -119,6 +122,8 @@ export default function TodayScreen() {
 }
 
 const styles = StyleSheet.create({
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two, paddingTop: Spacing.three },
+  logo: { width: 198, height: 66 },
   spotButton: {
     flexDirection: 'row',
     alignItems: 'center',
