@@ -45,6 +45,17 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
-    "backgroundColor": "#0E2A33"
+    "backgroundColor": "#0E2A33",
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "9d62fa02-890c-4894-b12c-d7c69b1395f5"
+      }
+    },
+    "owner": "martinezwfl"
   }
 }
