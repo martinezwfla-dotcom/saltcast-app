@@ -20,6 +20,8 @@ The verdict rules for each activity are in `src/data/activities.ts`, and the spo
 
 ## Publishing to the App Store without a Mac
 
+On Windows, follow the step-by-step guide in `docs/first-build-windows.md`.
+
 You need an Apple Developer account, an Expo account, and any computer with [Node.js](https://nodejs.org) installed (Windows is fine).
 
 1. Download this repository and open a terminal in its folder.
