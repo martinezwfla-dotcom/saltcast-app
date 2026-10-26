@@ -127,4 +127,4 @@ export function verdictRank(v: Verdict) {
   return Rank[v];
 }
 
-export const VerdictLabel: Record<Verdict, string> = { go: 'Go', maybe: 'Maybe', nogo: 'No Go' };
+export const VerdictLabel: Record<Verdict, string> = { go: 'Go', maybe: 'Not ideal', nogo: 'No Go' };
