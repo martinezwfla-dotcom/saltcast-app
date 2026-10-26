@@ -1,56 +1,46 @@
-# Welcome to your Expo app 👋
+# Saltcast Florida
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+The iPhone app for [saltcastflorida.com](https://saltcastflorida.com). It tells you whether it's a good time to go fishing, surfing, diving, boating, sailing, or paddling at 20 spots around Florida, and when the best times are in the next 48 hours.
 
-## Get started
+Built with Expo (React Native). iPhone builds run in the cloud on EAS, so no Mac is needed.
 
-1. Install dependencies
+## What's in the app
 
-   ```bash
-   npm install
-   ```
+| Tab | What it shows |
+| --- | --- |
+| Today | A Go, Maybe, or No Go verdict for the chosen activity and spot, with wind, seas, swell, water temperature, weather, tides, and the next 12 hours |
+| Best Times | The best daylight windows in the next 48 hours, tap one for hour by hour detail |
+| Spots | 20 spots in the Gulf, Keys, Atlantic, and Panhandle regions, favorites, and units |
+| Radar | A live radar map from Windy, centered on the chosen spot |
+| Dock Talk | Tips for each activity and the seasonal outlook |
 
-2. Start the app
+Data comes from free public sources: the Open-Meteo weather and marine APIs, and NOAA CO-OPS tide predictions. The phone calls them directly, so there is no server.
 
-   ```bash
-   npx expo start
-   ```
+The verdict rules for each activity are in `src/data/activities.ts`, and the spots are in `src/data/spots.ts`.
 
-In the output, you'll find options to open the app in a
+## Publishing to the App Store without a Mac
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+You need an Apple Developer account, an Expo account, and any computer with [Node.js](https://nodejs.org) installed (Windows is fine).
 
-You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+1. Download this repository and open a terminal in its folder.
+2. Run `npm install`.
+3. Run `npx eas-cli@latest login` and sign in with your Expo account.
+4. Run `npx eas-cli@latest init` to link the project to your Expo account.
+5. Run `npx eas-cli@latest build --platform ios --profile production --auto-submit`.
+   - Sign in with your Apple ID when asked, and let EAS create the certificates and provisioning profile for you.
+   - The build takes 15 to 30 minutes in the cloud. When it's done, EAS uploads it to App Store Connect.
+6. Install the TestFlight app on your iPhone and test the build. Apple emails you when it's ready.
+7. In [App Store Connect](https://appstoreconnect.apple.com), fill in the listing (see `docs/app-store-listing.md`), pick the build, and submit it for review.
 
-## Get a fresh project
+After the first build works, later builds can be started from the expo.dev website with "Build from GitHub".
 
-When you're ready, run:
+## Running it locally
 
 ```bash
-npm run reset-project
+npm install
+npx expo start
 ```
 
-This command will move the starter code to the **example** directory and create a blank **src/app** directory where you can start developing.
+Then scan the QR code with the Expo Go app on your iPhone.
 
-### Other setup steps
-
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Before committing, run `npx tsc --noEmit` and `npx eslint .`.

@@ -1,18 +1,43 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
+import { DarkTheme, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, type ReactNode } from 'react';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import AppTabs from '@/components/app-tabs';
+import { Colors } from '@/constants/theme';
+import { SettingsProvider, useSettings } from '@/state/settings';
 
 SplashScreen.preventAutoHideAsync();
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+const Theme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    background: Colors.dark.background,
+    card: Colors.dark.background,
+    primary: Colors.dark.accent,
+    text: Colors.dark.text,
+    border: Colors.dark.border,
+  },
+};
+
+function HideSplashWhenReady({ children }: { children: ReactNode }) {
+  const { loaded } = useSettings();
+  useEffect(() => {
+    if (loaded) SplashScreen.hideAsync();
+  }, [loaded]);
+  return loaded ? children : null;
+}
+
+export default function RootLayout() {
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
+    <ThemeProvider value={Theme}>
+      <StatusBar style="light" />
+      <SettingsProvider>
+        <HideSplashWhenReady>
+          <AppTabs />
+        </HideSplashWhenReady>
+      </SettingsProvider>
     </ThemeProvider>
   );
 }
