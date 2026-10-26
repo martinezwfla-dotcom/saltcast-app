@@ -1,10 +1,11 @@
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Card, Icon, VerdictColor } from '@/components/ui';
+import { Card, Icon, VerdictColor, VerdictPill } from '@/components/ui';
 import { Colors, Spacing } from '@/constants/theme';
 import type { Activity } from '@/data/activities';
 import type { Spot } from '@/data/spots';
+import type { DaySummary } from '@/lib/daily';
 import type { Forecast, HourForecast, TideEvent } from '@/lib/forecast';
 import { clock, compass, dayLabel, height, temperature, weatherSymbol, weatherText, windSpeed, type Units } from '@/lib/format';
 import { rateHour, windRelation } from '@/lib/verdict';
@@ -155,6 +156,63 @@ export function HourlyStrip({
   );
 }
 
+export function DailyForecast({
+  days,
+  units,
+  utcOffset,
+  now,
+}: {
+  days: DaySummary[];
+  units: Units;
+  utcOffset: number;
+  now: number;
+}) {
+  return (
+    <Card style={styles.daily}>
+      {days.map((d, i) => {
+        const wind =
+          d.windMin != null && d.windMax != null && Math.round(d.windMin) !== Math.round(d.windMax)
+            ? `${windSpeed(d.windMin, units).split(' ')[0]} to ${windSpeed(d.windMax, units)}`
+            : windSpeed(d.windMax, units);
+        return (
+          <View key={d.time} style={[styles.dayRow, i > 0 && styles.dayDivider]}>
+            <View style={styles.dayName}>
+              <ThemedText type="smallBold">{dayLabel(d.time, utcOffset, now)}</ThemedText>
+              <Icon name={weatherSymbol(d.weatherCode, true)} size={22} color={C.text} />
+            </View>
+            <View style={styles.dayMiddle}>
+              {d.best ? (
+                <View style={styles.dayVerdict}>
+                  <VerdictPill verdict={d.best.rating.verdict} />
+                  {d.best.rating.verdict !== 'nogo' ? (
+                    <ThemedText type="small" themeColor="textSecondary">
+                      best {clock(d.best.hour.time, utcOffset)}
+                    </ThemedText>
+                  ) : null}
+                </View>
+              ) : (
+                <ThemedText type="small" themeColor="textSecondary">
+                  After dark
+                </ThemedText>
+              )}
+              <ThemedText type="small" themeColor="textSecondary">
+                {wind} · seas to {height(d.waveMax, units)}
+                {d.precipChance != null && d.precipChance >= 20 ? ` · ${d.precipChance}% rain` : ''}
+              </ThemedText>
+            </View>
+            <View style={styles.dayTemps}>
+              <ThemedText type="smallBold">{temperature(d.high, units)}</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                {temperature(d.low, units)}
+              </ThemedText>
+            </View>
+          </View>
+        );
+      })}
+    </Card>
+  );
+}
+
 const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   stat: { flexGrow: 1, flexBasis: '45%', gap: Spacing.one },
@@ -173,4 +231,11 @@ const styles = StyleSheet.create({
     minWidth: 62,
   },
   dot: { width: 12, height: 12, borderRadius: 6 },
+  daily: { paddingVertical: Spacing.one, gap: 0 },
+  dayRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingVertical: 10 },
+  dayDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border },
+  dayName: { width: 76, gap: 4 },
+  dayMiddle: { flex: 1, gap: 4 },
+  dayVerdict: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  dayTemps: { alignItems: 'flex-end', gap: 2 },
 });

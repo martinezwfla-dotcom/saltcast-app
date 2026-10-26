@@ -18,6 +18,7 @@ Saltcast Florida tells you whether it's a good time to get out on the water, and
 
 Pick your activity, whether it's fishing, surfing, diving and snorkeling, boating, sailing, or kayak and SUP, and a spot anywhere from Pensacola to Key West. Saltcast checks the wind, gusts, seas, swell, rain, and storms, and gives you a simple Go, Maybe, or No Go.
 
+- A 7-day outlook with a verdict for each day
 - The best windows in the next 48 hours, ranked
 - Wind, gusts, seas, swell, and water temperature
 - High and low tides from NOAA

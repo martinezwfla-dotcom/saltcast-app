@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
-import { ConditionsGrid, HourlyStrip, TideCard } from '@/components/conditions';
+import { ConditionsGrid, DailyForecast, HourlyStrip, TideCard } from '@/components/conditions';
 import { ThemedText } from '@/components/themed-text';
 import { ActivityPicker, Card, Disclaimer, Header, Icon, Screen, VerdictPill } from '@/components/ui';
 import { Colors, Spacing } from '@/constants/theme';
@@ -10,6 +10,7 @@ import { getSpot } from '@/data/spots';
 import { useForecast } from '@/hooks/use-forecast';
 import { useNow } from '@/hooks/use-now';
 import { findBestWindows } from '@/lib/best-times';
+import { summarizeDays } from '@/lib/daily';
 import { currentHourIndex } from '@/lib/forecast';
 import { clock, timeRange } from '@/lib/format';
 import { rateHour, VerdictLabel } from '@/lib/verdict';
@@ -96,6 +97,14 @@ export default function TodayScreen() {
             spot={spot}
             units={units}
             utcOffset={forecast.utcOffset}
+          />
+
+          <ThemedText type="smallBold">7-day forecast for {activity.name.toLowerCase()}</ThemedText>
+          <DailyForecast
+            days={summarizeDays(forecast, activity, spot, now)}
+            units={units}
+            utcOffset={forecast.utcOffset}
+            now={now}
           />
 
           <ThemedText type="small" themeColor="textSecondary" style={styles.updated}>
