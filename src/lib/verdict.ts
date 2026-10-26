@@ -66,9 +66,13 @@ export function rateHour(hour: HourForecast, activity: Activity, spot: Spot): Ho
   if (hour.gusts != null) {
     checks.push({
       name: 'gusts',
-      value: under(hour.gusts, r.wind.maybe + 4, r.wind.maybe + 12),
+      value: under(hour.gusts, r.wind.good + 6, r.wind.maybe + 6),
       reason: `Gusts to ${Math.round(hour.gusts)} kt`,
     });
+    // Gusts far above the steady wind make for a bumpy, unpredictable day.
+    if (hour.wind != null && hour.gusts > r.wind.good && hour.gusts - hour.wind >= 10) {
+      checks.push({ name: 'gusty', value: 0.5, reason: `Gusty, ${Math.round(hour.gusts - hour.wind)} kt above the wind` });
+    }
   }
   if (hour.waveHeight != null) {
     checks.push({
