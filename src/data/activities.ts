@@ -2,7 +2,7 @@ import type { SFSymbol } from 'expo-symbols';
 
 /**
  * Seas up to 1.5 ft are a Go, over 1.5 ft Not ideal, over 2.5 ft No Go.
- * A rating counts as Go down to 75% of the way from `good` to `maybe`, so
+ * An hour stays a Go until seas are a quarter of the way from `good` to `maybe`, so
  * `good` sits just below 1.5 ft to put that cutoff at 1.5 ft.
  */
 const SeasLimits = { good: 1.17, maybe: 2.5 };
