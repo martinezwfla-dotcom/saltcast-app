@@ -106,7 +106,7 @@ export const Activities: Activity[] = [
     id: 'paddling',
     name: 'Kayak & SUP',
     icon: 'figure.water.fitness',
-    rules: { wind: { good: 8, maybe: 12 }, waves: SeasLimits },
+    rules: { wind: { good: 8, maybe: 12 }, waves: { good: 1.5, maybe: 2.5 } },
     tips: [
       'Paddle into the wind on the way out so it helps you on the way home, when you\'re tired.',
       'Mangrove creeks and the back bays stay calm when the open water is choppy.',
