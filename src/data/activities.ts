@@ -1,5 +1,12 @@
 import type { SFSymbol } from 'expo-symbols';
 
+/**
+ * Seas up to 1.5 ft are a Go, over 1.5 ft Not ideal, over 2.5 ft No Go.
+ * A rating counts as Go down to 75% of the way from `good` to `maybe`, so
+ * `good` sits just below 1.5 ft to put that cutoff at 1.5 ft.
+ */
+const SeasLimits = { good: 1.17, maybe: 2.5 };
+
 export type ActivityId = 'fishing' | 'surfing' | 'diving' | 'boating' | 'sailing' | 'paddling';
 
 /**
@@ -30,7 +37,7 @@ export const Activities: Activity[] = [
     id: 'fishing',
     name: 'Fishing',
     icon: 'fish',
-    rules: { wind: { good: 7, maybe: 15 }, waves: { good: 1.5, maybe: 3.5 } },
+    rules: { wind: { good: 7, maybe: 15 }, waves: SeasLimits },
     tips: [
       'Fish bite best around a moving tide. Plan to be on the spot an hour either side of high or low water.',
       'A falling barometer before a front often turns the bite on. Get out ahead of it, not after.',
@@ -59,7 +66,7 @@ export const Activities: Activity[] = [
     id: 'diving',
     name: 'Diving & Snorkeling',
     icon: 'water.waves',
-    rules: { wind: { good: 10, maybe: 15 }, waves: { good: 2, maybe: 3 } },
+    rules: { wind: { good: 10, maybe: 15 }, waves: SeasLimits },
     tips: [
       'Calm seas and light wind for a day or two before you dive usually mean better visibility.',
       'Dive near high tide on reefs close to shore. Clearer ocean water pushes in then.',
@@ -71,7 +78,7 @@ export const Activities: Activity[] = [
     id: 'boating',
     name: 'Boating',
     icon: 'ferry',
-    rules: { wind: { good: 7, maybe: 15 }, waves: { good: 1.5, maybe: 3.5 } },
+    rules: { wind: { good: 7, maybe: 15 }, waves: SeasLimits },
     tips: [
       'Wind against the tide in an inlet stacks up steep, dangerous waves. Time inlet runs with the tide.',
       'Summer afternoon storms build fast over land and drift offshore. Plan to be back at the dock by early afternoon.',
@@ -99,7 +106,7 @@ export const Activities: Activity[] = [
     id: 'paddling',
     name: 'Kayak & SUP',
     icon: 'figure.water.fitness',
-    rules: { wind: { good: 8, maybe: 12 }, waves: { good: 1.5, maybe: 2.5 } },
+    rules: { wind: { good: 8, maybe: 12 }, waves: SeasLimits },
     tips: [
       'Paddle into the wind on the way out so it helps you on the way home, when you\'re tired.',
       'Mangrove creeks and the back bays stay calm when the open water is choppy.',
