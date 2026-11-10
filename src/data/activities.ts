@@ -93,7 +93,7 @@ export const Activities: Activity[] = [
     rules: {
       wind: { good: 18, maybe: 24 },
       minWind: { good: 8, maybe: 5 },
-      waves: { good: 4, maybe: 6 },
+      waves: SeasLimits,
     },
     tips: [
       'The afternoon sea breeze is reliable in summer, often 10 to 15 kt from the water toward land.',
