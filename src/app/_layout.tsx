@@ -35,8 +35,7 @@ function HideSplashWhenReady({ children }: { children: ReactNode }) {
 
 /** Keeps the Go alerts up to date, and opens the right spot when one is tapped. */
 function AlertsSync() {
-  const { loaded, alerts, favorites, customSpots, setSpot, setActivity } = useSettings();
-  const response = Notifications.useLastNotificationResponse();
+  const { loaded, alerts, favorites, customSpots } = useSettings();
 
   useEffect(() => {
     if (!loaded || Platform.OS === 'web') return;
@@ -52,6 +51,14 @@ function AlertsSync() {
       sub.remove();
     };
   }, [loaded, alerts, favorites, customSpots]);
+
+  return Platform.OS === 'web' ? null : <AlertTaps />;
+}
+
+/** Opens the spot and activity of a Go alert the user tapped. Not available on web. */
+function AlertTaps() {
+  const { setSpot, setActivity } = useSettings();
+  const response = Notifications.useLastNotificationResponse();
 
   useEffect(() => {
     const data = response?.notification.request.content.data as

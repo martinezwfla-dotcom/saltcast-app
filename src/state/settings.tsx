@@ -3,7 +3,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 
 import { DefaultActivityId, type ActivityId } from '@/data/activities';
 import { DefaultAlerts, SettingsStorageKey, type AlertSettings } from '@/lib/alerts';
-import { DefaultSpotId, setCustomSpots, type Spot } from '@/data/spots';
+import { DefaultSpotId, setCustomSpots, Spots, type Spot } from '@/data/spots';
 import type { Units } from '@/lib/format';
 
 type Settings = {
@@ -14,6 +14,8 @@ type Settings = {
   customSpots: Spot[];
   /** Go alerts for favorite spots. */
   alerts: AlertSettings;
+  /** Built-in spots removed from the Spots list. */
+  hidden: string[];
   units: Units;
 };
 
@@ -25,6 +27,10 @@ type SettingsContextValue = Settings & {
   /** Saves a searched place and makes it the current spot. */
   addCustomSpot: (spot: Spot) => void;
   setAlerts: (alerts: AlertSettings) => void;
+  /** Removes a spot from the list. A searched place is deleted. */
+  hideSpot: (id: string) => void;
+  /** Puts a removed spot back, or all of them when no id is given. */
+  showSpot: (id?: string) => void;
   setUnits: (units: Units) => void;
 };
 
@@ -36,6 +42,7 @@ const Defaults: Settings = {
   favorites: [],
   customSpots: [],
   alerts: DefaultAlerts,
+  hidden: [],
   units: 'imperial',
 };
 
@@ -63,6 +70,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           };
           if (!Array.isArray(saved.customSpots)) saved.customSpots = [];
           if (!saved.alerts || !Array.isArray(saved.alerts.activities)) saved.alerts = DefaultAlerts;
+          if (!Array.isArray(saved.hidden)) saved.hidden = [];
           setSettings(saved);
         }
       })
@@ -96,6 +104,17 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           }),
         ),
       setAlerts: (alerts) => setSettings((s) => ({ ...s, alerts })),
+      hideSpot: (id) =>
+        setSettings((s) => {
+          const custom = s.customSpots.some((c) => c.id === id);
+          const hidden = custom || s.hidden.includes(id) ? s.hidden : [...s.hidden, id];
+          const favorites = s.favorites.filter((f) => f !== id);
+          const customSpots = s.customSpots.filter((c) => c.id !== id);
+          // If the current spot is removed, switch to the first spot still listed.
+          const spotId = s.spotId === id ? (Spots.find((x) => !hidden.includes(x.id))?.id ?? DefaultSpotId) : s.spotId;
+          return prune({ ...s, hidden, favorites, customSpots, spotId });
+        }),
+      showSpot: (id) => setSettings((s) => ({ ...s, hidden: id ? s.hidden.filter((h) => h !== id) : [] })),
       setUnits: (units) => setSettings((s) => ({ ...s, units })),
     }),
     [settings, loaded],

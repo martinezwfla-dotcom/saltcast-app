@@ -14,8 +14,8 @@ import { useSettings } from '@/state/settings';
 
 const C = Colors.dark;
 
-function SpotRow({ spot }: { spot: Spot }) {
-  const { spotId, favorites, setSpot, toggleFavorite } = useSettings();
+function SpotRow({ spot, editing }: { spot: Spot; editing?: boolean }) {
+  const { spotId, favorites, setSpot, toggleFavorite, hideSpot } = useSettings();
   const selected = spot.id === spotId;
   const favorite = favorites.includes(spot.id);
 
@@ -32,18 +32,30 @@ function SpotRow({ spot }: { spot: Spot }) {
         <View style={{ flex: 1 }}>
           <ThemedText type="smallBold">{spot.name}</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            {spot.custom ? `Searched place · tides from ${spot.tideStation.name}` : `Tides from ${spot.tideStation.name}`}
+            {spot.custom
+              ? `Searched place · tides from ${spot.tideStation.name}`
+              : `Tides from ${spot.tideStation.name}`}
           </ThemedText>
         </View>
         {selected ? <Icon name="checkmark" size={16} /> : null}
       </Pressable>
-      <Pressable
-        onPress={() => toggleFavorite(spot.id)}
-        hitSlop={10}
-        accessibilityRole="button"
-        accessibilityLabel={favorite ? `Remove ${spot.name} from favorites` : `Add ${spot.name} to favorites`}>
-        <Icon name={favorite ? 'star.fill' : 'star'} size={20} color={favorite ? C.maybe : C.textSecondary} />
-      </Pressable>
+      {editing ? (
+        <Pressable
+          onPress={() => hideSpot(spot.id)}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel={`Remove ${spot.name} from the list`}>
+          <Icon name="minus.circle.fill" size={22} color={C.noGo} />
+        </Pressable>
+      ) : (
+        <Pressable
+          onPress={() => toggleFavorite(spot.id)}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel={favorite ? `Remove ${spot.name} from favorites` : `Add ${spot.name} to favorites`}>
+          <Icon name={favorite ? 'star.fill' : 'star'} size={20} color={favorite ? C.maybe : C.textSecondary} />
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -222,14 +234,37 @@ function UnitsPicker() {
 }
 
 export default function SpotsScreen() {
-  const { favorites, customSpots, spotId } = useSettings();
+  const { favorites, customSpots, spotId, hidden, showSpot } = useSettings();
+  const [editing, setEditing] = useState(false);
+  const removed = Spots.filter((s) => hidden.includes(s.id));
   const allSpots = [...Spots, ...customSpots];
   const favoriteSpots = favorites.map((id) => allSpots.find((s) => s.id === id)).filter((s): s is Spot => !!s);
   const recent = customSpots.find((s) => s.id === spotId && !favorites.includes(s.id));
 
   return (
     <Screen>
-      <Header title="Spots" subtitle="Pick a spot or search for any Florida beach or town" />
+      <Header
+        title="Spots"
+        subtitle="Pick a spot or search for any Florida beach or town"
+        right={
+          <Pressable
+            onPress={() => setEditing(!editing)}
+            hitSlop={10}
+            accessibilityRole="button"
+            style={styles.editButton}>
+            <ThemedText type="smallBold" themeColor="accent">
+              {editing ? 'Done' : 'Edit'}
+            </ThemedText>
+          </Pressable>
+        }
+      />
+
+      {editing ? (
+        <ThemedText type="small" themeColor="textSecondary">
+          Tap the red button to remove a spot from your list. Searched places are deleted. Tap Done when you&apos;re
+          finished.
+        </ThemedText>
+      ) : null}
 
       <PlaceSearch />
 
@@ -237,7 +272,7 @@ export default function SpotsScreen() {
         <>
           <ThemedText type="smallBold">Searched place</ThemedText>
           <Card style={styles.list}>
-            <SpotRow spot={recent} />
+            <SpotRow spot={recent} editing={editing} />
           </Card>
           <ThemedText type="small" themeColor="textSecondary">
             Tap the star to keep it. Otherwise it&apos;s replaced by your next search.
@@ -250,7 +285,7 @@ export default function SpotsScreen() {
           <ThemedText type="smallBold">Favorites</ThemedText>
           <Card style={styles.list}>
             {favoriteSpots.map((s) => (
-              <SpotRow key={s.id} spot={s} />
+              <SpotRow key={s.id} spot={s} editing={editing} />
             ))}
           </Card>
         </>
@@ -258,16 +293,48 @@ export default function SpotsScreen() {
 
       <GoAlerts />
 
-      {Regions.map((region) => (
-        <View key={region} style={{ gap: Spacing.two }}>
-          <ThemedText type="smallBold">{region}</ThemedText>
+      {Regions.map((region) => {
+        const list = Spots.filter((s) => s.region === region && !hidden.includes(s.id));
+        if (!list.length) return null;
+        return (
+          <View key={region} style={{ gap: Spacing.two }}>
+            <ThemedText type="smallBold">{region}</ThemedText>
+            <Card style={styles.list}>
+              {list.map((s) => (
+                <SpotRow key={s.id} spot={s} editing={editing} />
+              ))}
+            </Card>
+          </View>
+        );
+      })}
+
+      {removed.length ? (
+        <>
+          <ThemedText type="smallBold">Removed spots</ThemedText>
           <Card style={styles.list}>
-            {Spots.filter((s) => s.region === region).map((s) => (
-              <SpotRow key={s.id} spot={s} />
+            {removed.map((s) => (
+              <Pressable
+                key={s.id}
+                style={styles.row}
+                onPress={() => showSpot(s.id)}
+                accessibilityRole="button"
+                accessibilityLabel={`Add ${s.name} back`}>
+                <ThemedText style={{ flex: 1 }} themeColor="textSecondary">
+                  {s.name}
+                </ThemedText>
+                <Icon name="plus.circle.fill" size={22} color={C.go} />
+              </Pressable>
             ))}
+            {removed.length > 1 ? (
+              <Pressable style={styles.row} onPress={() => showSpot()} accessibilityRole="button">
+                <ThemedText type="smallBold" themeColor="accent">
+                  Show all spots
+                </ThemedText>
+              </Pressable>
+            ) : null}
           </Card>
-        </View>
-      ))}
+        </>
+      ) : null}
 
       <ThemedText type="smallBold">Units</ThemedText>
       <UnitsPicker />
@@ -278,7 +345,9 @@ export default function SpotsScreen() {
           <ThemedText style={{ flex: 1 }}>saltcastflorida.com</ThemedText>
           <Icon name="chevron.right" size={14} />
         </Pressable>
-        <Pressable style={styles.row} onPress={() => WebBrowser.openBrowserAsync('https://saltcastflorida.com/privacy')}>
+        <Pressable
+          style={styles.row}
+          onPress={() => WebBrowser.openBrowserAsync('https://saltcastflorida.com/privacy')}>
           <ThemedText style={{ flex: 1 }}>Privacy policy</ThemedText>
           <Icon name="chevron.right" size={14} />
         </Pressable>
@@ -313,6 +382,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   searchInput: { flex: 1, color: C.text, fontSize: 16, paddingVertical: 10 },
+  editButton: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: C.border },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   chip: {
     borderRadius: 999,
