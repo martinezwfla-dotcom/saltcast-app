@@ -130,7 +130,7 @@ export async function refreshAlerts(input: AlertInput, now = Date.now()) {
         await Notifications.scheduleNotificationAsync({
           identifier: `${IdPrefix}${key}`,
           content: {
-            title: `Go for ${activity.name.toLowerCase()} at ${spot.name}`,
+            title: `Favorable for ${activity.name.toLowerCase()} at ${spot.name}`,
             body: `${dayLabel(w.start, forecast.utcOffset, at)} ${clock(w.start, forecast.utcOffset)} to ${clock(w.end, forecast.utcOffset)}. Tap for the details.`,
             data: { spotId: spot.id, activityId },
           },

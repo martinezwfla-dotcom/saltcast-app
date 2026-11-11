@@ -147,16 +147,16 @@ function GoAlerts() {
     <Card style={{ gap: Spacing.two }}>
       <View style={styles.row}>
         <View style={{ flex: 1 }}>
-          <ThemedText type="smallBold">Go alerts</ThemedText>
+          <ThemedText type="smallBold">Favorable alerts</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            Get a heads-up when it&apos;s a Go at your favorite spots.
+            Get a heads-up when conditions look favorable at your favorite spots.
           </ThemedText>
         </View>
         <Switch
           value={alerts.enabled}
           onValueChange={toggle}
           trackColor={{ true: C.accent, false: C.backgroundElement }}
-          accessibilityLabel="Go alerts"
+          accessibilityLabel="Favorable alerts"
         />
       </View>
       {denied ? (
@@ -198,7 +198,7 @@ function GoAlerts() {
               ? 'Tap the star on a spot to add it to your favorites. Alerts are for favorites only.'
               : !alerts.activities.length
                 ? 'Pick at least one activity.'
-                : 'Alerts come at 6am on a Go day, or the evening before for an early start. They use the latest forecast your phone has, so open the app now and then to keep them fresh.'}
+                : 'Alerts come at 6am on a favorable day, or the evening before for an early start. They use the latest forecast your phone has, so open the app now and then to keep them fresh.'}
           </ThemedText>
         </>
       ) : null}
