@@ -1,10 +1,14 @@
-import { DarkTheme, ThemeProvider } from 'expo-router';
+import * as Notifications from 'expo-notifications';
+import { DarkTheme, router, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, type ReactNode } from 'react';
+import { AppState, Platform } from 'react-native';
 
 import AppTabs from '@/components/app-tabs';
 import { Colors } from '@/constants/theme';
+import type { ActivityId } from '@/data/activities';
+import { refreshAlerts, setBackgroundAlerts } from '@/lib/alerts';
 import { SettingsProvider, useSettings } from '@/state/settings';
 
 SplashScreen.preventAutoHideAsync();
@@ -29,12 +33,48 @@ function HideSplashWhenReady({ children }: { children: ReactNode }) {
   return loaded ? children : null;
 }
 
+/** Keeps the Go alerts up to date, and opens the right spot when one is tapped. */
+function AlertsSync() {
+  const { loaded, alerts, favorites, customSpots, setSpot, setActivity } = useSettings();
+  const response = Notifications.useLastNotificationResponse();
+
+  useEffect(() => {
+    if (!loaded || Platform.OS === 'web') return;
+    const input = { alerts, favorites, customSpots };
+    const on = alerts.enabled && alerts.activities.length > 0 && favorites.length > 0;
+    setBackgroundAlerts(on);
+    const timer = setTimeout(() => refreshAlerts(input).catch(() => {}), 1500);
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') refreshAlerts(input).catch(() => {});
+    });
+    return () => {
+      clearTimeout(timer);
+      sub.remove();
+    };
+  }, [loaded, alerts, favorites, customSpots]);
+
+  useEffect(() => {
+    const data = response?.notification.request.content.data as
+      | { spotId?: string; activityId?: ActivityId }
+      | undefined;
+    if (!data?.spotId) return;
+    setSpot(data.spotId);
+    if (data.activityId) setActivity(data.activityId);
+    router.navigate('/');
+    // Only react to a new tap, not to settings changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [response]);
+
+  return null;
+}
+
 export default function RootLayout() {
   return (
     <ThemeProvider value={Theme}>
       <StatusBar style="light" />
       <SettingsProvider>
         <HideSplashWhenReady>
+          <AlertsSync />
           <AppTabs />
         </HideSplashWhenReady>
       </SettingsProvider>

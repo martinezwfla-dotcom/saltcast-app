@@ -1,11 +1,13 @@
 import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Card, Header, Icon, Screen } from '@/components/ui';
 import { Colors, Spacing } from '@/constants/theme';
+import { Activities } from '@/data/activities';
+import { requestAlertPermission } from '@/lib/alerts';
 import { makeCustomSpot, Regions, searchPlaces, Spots, type Place, type Spot } from '@/data/spots';
 import type { Units } from '@/lib/format';
 import { useSettings } from '@/state/settings';
@@ -116,6 +118,82 @@ function PlaceSearch() {
   );
 }
 
+function GoAlerts() {
+  const { alerts, setAlerts, favorites } = useSettings();
+  const [denied, setDenied] = useState(false);
+
+  async function toggle(on: boolean) {
+    if (on) {
+      const ok = await requestAlertPermission();
+      setDenied(!ok);
+      if (!ok) return;
+    }
+    setAlerts({ ...alerts, enabled: on });
+  }
+
+  return (
+    <Card style={{ gap: Spacing.two }}>
+      <View style={styles.row}>
+        <View style={{ flex: 1 }}>
+          <ThemedText type="smallBold">Go alerts</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            Get a heads-up when it&apos;s a Go at your favorite spots.
+          </ThemedText>
+        </View>
+        <Switch
+          value={alerts.enabled}
+          onValueChange={toggle}
+          trackColor={{ true: C.accent, false: C.backgroundElement }}
+          accessibilityLabel="Go alerts"
+        />
+      </View>
+      {denied ? (
+        <Pressable onPress={() => Linking.openSettings()}>
+          <ThemedText type="small" themeColor="accent">
+            Notifications are off for Saltcast. Tap to turn them on in Settings.
+          </ThemedText>
+        </Pressable>
+      ) : null}
+      {alerts.enabled ? (
+        <>
+          <ThemedText type="small" themeColor="textSecondary">
+            Alert me for:
+          </ThemedText>
+          <View style={styles.chips}>
+            {Activities.map((a) => {
+              const on = alerts.activities.includes(a.id);
+              return (
+                <Pressable
+                  key={a.id}
+                  onPress={() =>
+                    setAlerts({
+                      ...alerts,
+                      activities: on ? alerts.activities.filter((x) => x !== a.id) : [...alerts.activities, a.id],
+                    })
+                  }
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: on }}
+                  style={[styles.chip, on && styles.chipOn]}>
+                  <ThemedText type="small" style={{ color: on ? C.background : C.text, fontWeight: 600 }}>
+                    {a.name}
+                  </ThemedText>
+                </Pressable>
+              );
+            })}
+          </View>
+          <ThemedText type="small" themeColor="textSecondary">
+            {!favorites.length
+              ? 'Tap the star on a spot to add it to your favorites. Alerts are for favorites only.'
+              : !alerts.activities.length
+                ? 'Pick at least one activity.'
+                : 'Alerts come at 6am on a Go day, or the evening before for an early start. They use the latest forecast your phone has, so open the app now and then to keep them fresh.'}
+          </ThemedText>
+        </>
+      ) : null}
+    </Card>
+  );
+}
+
 function UnitsPicker() {
   const { units, setUnits } = useSettings();
   const options: { value: Units; label: string }[] = [
@@ -178,6 +256,8 @@ export default function SpotsScreen() {
         </>
       ) : null}
 
+      <GoAlerts />
+
       {Regions.map((region) => (
         <View key={region} style={{ gap: Spacing.two }}>
           <ThemedText type="smallBold">{region}</ThemedText>
@@ -233,6 +313,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   searchInput: { flex: 1, color: C.text, fontSize: 16, paddingVertical: 10 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  chip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: C.border,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  chipOn: { backgroundColor: C.accent, borderColor: C.accent },
   segment: {
     flexDirection: 'row',
     backgroundColor: C.backgroundElement,

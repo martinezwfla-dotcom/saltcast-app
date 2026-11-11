@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { DefaultActivityId, type ActivityId } from '@/data/activities';
+import { DefaultAlerts, SettingsStorageKey, type AlertSettings } from '@/lib/alerts';
 import { DefaultSpotId, setCustomSpots, type Spot } from '@/data/spots';
 import type { Units } from '@/lib/format';
 
@@ -11,6 +12,8 @@ type Settings = {
   favorites: string[];
   /** Places found with search. Kept while they are favorites or the current spot. */
   customSpots: Spot[];
+  /** Go alerts for favorite spots. */
+  alerts: AlertSettings;
   units: Units;
 };
 
@@ -21,16 +24,18 @@ type SettingsContextValue = Settings & {
   toggleFavorite: (id: string) => void;
   /** Saves a searched place and makes it the current spot. */
   addCustomSpot: (spot: Spot) => void;
+  setAlerts: (alerts: AlertSettings) => void;
   setUnits: (units: Units) => void;
 };
 
-const StorageKey = 'saltcast.settings.v1';
+const StorageKey = SettingsStorageKey;
 
 const Defaults: Settings = {
   activityId: DefaultActivityId,
   spotId: DefaultSpotId,
   favorites: [],
   customSpots: [],
+  alerts: DefaultAlerts,
   units: 'imperial',
 };
 
@@ -57,6 +62,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
             ...(JSON.parse(raw) as Partial<Settings>),
           };
           if (!Array.isArray(saved.customSpots)) saved.customSpots = [];
+          if (!saved.alerts || !Array.isArray(saved.alerts.activities)) saved.alerts = DefaultAlerts;
           setSettings(saved);
         }
       })
@@ -89,6 +95,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
             customSpots: [...s.customSpots.filter((c) => c.id !== spot.id), spot],
           }),
         ),
+      setAlerts: (alerts) => setSettings((s) => ({ ...s, alerts })),
       setUnits: (units) => setSettings((s) => ({ ...s, units })),
     }),
     [settings, loaded],
