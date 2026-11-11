@@ -1,11 +1,12 @@
 import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Card, Header, Icon, Screen } from '@/components/ui';
 import { Colors, Spacing } from '@/constants/theme';
-import { Regions, Spots, type Spot } from '@/data/spots';
+import { makeCustomSpot, Regions, searchPlaces, Spots, type Place, type Spot } from '@/data/spots';
 import type { Units } from '@/lib/format';
 import { useSettings } from '@/state/settings';
 
@@ -29,7 +30,7 @@ function SpotRow({ spot }: { spot: Spot }) {
         <View style={{ flex: 1 }}>
           <ThemedText type="smallBold">{spot.name}</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            Tides from {spot.tideStation.name}
+            {spot.custom ? `Searched place · tides from ${spot.tideStation.name}` : `Tides from ${spot.tideStation.name}`}
           </ThemedText>
         </View>
         {selected ? <Icon name="checkmark" size={16} /> : null}
@@ -42,6 +43,76 @@ function SpotRow({ spot }: { spot: Spot }) {
         <Icon name={favorite ? 'star.fill' : 'star'} size={20} color={favorite ? C.maybe : C.textSecondary} />
       </Pressable>
     </View>
+  );
+}
+
+function PlaceSearch() {
+  const { addCustomSpot } = useSettings();
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<Place[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  async function search() {
+    const q = query.trim();
+    if (q.length < 2) return;
+    setBusy(true);
+    setMessage(null);
+    setResults(null);
+    try {
+      const found = await searchPlaces(q);
+      setResults(found);
+      if (!found.length) setMessage(`No Florida places found for "${q}". Try a nearby town or beach name.`);
+    } catch {
+      setMessage("Search isn't available right now. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function pick(place: Place) {
+    addCustomSpot(makeCustomSpot(place));
+    setQuery('');
+    setResults(null);
+    router.navigate('/');
+  }
+
+  return (
+    <Card style={{ gap: Spacing.two }}>
+      <View style={styles.searchRow}>
+        <Icon name="magnifyingglass" size={16} color={C.textSecondary} />
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          onSubmitEditing={search}
+          placeholder="Search any Florida beach or town"
+          placeholderTextColor={C.textSecondary}
+          returnKeyType="search"
+          autoCorrect={false}
+          style={styles.searchInput}
+          accessibilityLabel="Search any Florida beach or town"
+        />
+        {busy ? <ActivityIndicator color={C.accent} /> : null}
+      </View>
+      {message ? (
+        <ThemedText type="small" themeColor="textSecondary">
+          {message}
+        </ThemedText>
+      ) : null}
+      {results?.map((p) => (
+        <Pressable key={p.id} onPress={() => pick(p)} style={styles.row} accessibilityRole="button">
+          <View style={{ flex: 1 }}>
+            <ThemedText type="smallBold">{p.name}</ThemedText>
+            {p.admin2 ? (
+              <ThemedText type="small" themeColor="textSecondary">
+                {p.admin2}
+              </ThemedText>
+            ) : null}
+          </View>
+          <Icon name="chevron.right" size={14} />
+        </Pressable>
+      ))}
+    </Card>
   );
 }
 
@@ -73,12 +144,28 @@ function UnitsPicker() {
 }
 
 export default function SpotsScreen() {
-  const { favorites } = useSettings();
-  const favoriteSpots = Spots.filter((s) => favorites.includes(s.id));
+  const { favorites, customSpots, spotId } = useSettings();
+  const allSpots = [...Spots, ...customSpots];
+  const favoriteSpots = favorites.map((id) => allSpots.find((s) => s.id === id)).filter((s): s is Spot => !!s);
+  const recent = customSpots.find((s) => s.id === spotId && !favorites.includes(s.id));
 
   return (
     <Screen>
-      <Header title="Spots" subtitle="Pick a spot to see its forecast" />
+      <Header title="Spots" subtitle="Pick a spot or search for any Florida beach or town" />
+
+      <PlaceSearch />
+
+      {recent ? (
+        <>
+          <ThemedText type="smallBold">Searched place</ThemedText>
+          <Card style={styles.list}>
+            <SpotRow spot={recent} />
+          </Card>
+          <ThemedText type="small" themeColor="textSecondary">
+            Tap the star to keep it. Otherwise it&apos;s replaced by your next search.
+          </ThemedText>
+        </>
+      ) : null}
 
       {favoriteSpots.length ? (
         <>
@@ -131,7 +218,21 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
     paddingVertical: 10,
   },
-  rowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  rowMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    backgroundColor: C.backgroundElement,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+  },
+  searchInput: { flex: 1, color: C.text, fontSize: 16, paddingVertical: 10 },
   segment: {
     flexDirection: 'row',
     backgroundColor: C.backgroundElement,
@@ -139,6 +240,11 @@ const styles = StyleSheet.create({
     padding: 4,
     gap: 4,
   },
-  segmentItem: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 9 },
+  segmentItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderRadius: 9,
+  },
   segmentSelected: { backgroundColor: C.accent },
 });

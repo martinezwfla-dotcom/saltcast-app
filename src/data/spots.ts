@@ -13,6 +13,8 @@ export type Spot = {
   facing: number;
   /** NOAA tide prediction station. */
   tideStation: { id: string; name: string };
+  /** True for a place the user found with search. */
+  custom?: boolean;
 };
 
 const Stations = {
@@ -64,6 +66,69 @@ export const Spots: Spot[] = [
 
 export const DefaultSpotId = 'cocoa-beach';
 
+/** Places the user found with search. Kept in sync by the settings provider. */
+let customSpots: Spot[] = [];
+
+export function setCustomSpots(spots: Spot[]) {
+  customSpots = spots;
+}
+
 export function getSpot(id: string): Spot {
-  return Spots.find((s) => s.id === id) ?? Spots.find((s) => s.id === DefaultSpotId)!;
+  return Spots.find((s) => s.id === id) ?? customSpots.find((s) => s.id === id) ?? Spots.find((s) => s.id === DefaultSpotId)!;
+}
+
+/** A place from the Open-Meteo geocoding search. */
+export type Place = {
+  id: number;
+  name: string;
+  latitude: number;
+  longitude: number;
+  admin1?: string;
+  admin2?: string;
+};
+
+/** Rough guess of which way the coast faces and which region a Florida place is in. */
+function guessCoast(lat: number, lon: number): { facing: number; region: Region } {
+  if (lat < 25.35) return { facing: 150, region: 'Keys' };
+  if (lon < -84.2) return { facing: 180, region: 'Panhandle' };
+  if (lat >= 28.9 && lon < -82.4) return { facing: 225, region: 'Gulf' };
+  if (lon < -81.3) return { facing: 260, region: 'Gulf' };
+  return { facing: 90, region: 'Atlantic' };
+}
+
+/** Florida places that match the search text, best matches first. */
+export async function searchPlaces(query: string): Promise<Place[]> {
+  const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=20&language=en&format=json&countryCode=US`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Search is not available right now');
+  const data = (await res.json()) as { results?: Place[] };
+  return (data.results ?? []).filter((p) => p.admin1 === 'Florida').slice(0, 8);
+}
+
+/** Turns a searched place into a spot, with its forecast point a few miles offshore and the nearest tide station. */
+export function makeCustomSpot(place: Place): Spot {
+  const { facing, region } = guessCoast(place.latitude, place.longitude);
+  const rad = (facing * Math.PI) / 180;
+  const off = 0.08;
+  const lat = +(place.latitude + off * Math.cos(rad)).toFixed(3);
+  const lon = +(place.longitude + (off * Math.sin(rad)) / Math.cos((place.latitude * Math.PI) / 180)).toFixed(3);
+  let nearest = Spots[0];
+  let best = Infinity;
+  for (const s of Spots) {
+    const d = (s.lat - lat) ** 2 + (s.lon - lon) ** 2;
+    if (d < best) {
+      best = d;
+      nearest = s;
+    }
+  }
+  return {
+    id: `place-${place.id}`,
+    name: place.name,
+    region,
+    lat,
+    lon,
+    facing,
+    tideStation: nearest.tideStation,
+    custom: true,
+  };
 }

@@ -18,7 +18,8 @@ import { rateHour, VerdictLabel } from '@/lib/verdict';
 import { useSettings } from '@/state/settings';
 
 export default function TodayScreen() {
-  const { activityId, spotId, units, setActivity } = useSettings();
+  const { activityId, spotId, units, setActivity, favorites, toggleFavorite } = useSettings();
+  const favorite = favorites.includes(spotId);
   const activity = getActivity(activityId);
   const spot = getSpot(spotId);
   const { forecast, loading, error, refresh } = useForecast(spotId);
@@ -35,15 +36,26 @@ export default function TodayScreen() {
         <Pressable onPress={openWebsite} accessibilityRole="link" accessibilityLabel="Saltcast Florida, opens saltcastflorida.com">
           <Image source={require('@/assets/images/logo-header.png')} style={styles.logo} contentFit="contain" />
         </Pressable>
-        <Pressable onPress={() => router.navigate('/spots')} style={styles.spotButton} accessibilityRole="button">
-          <Icon name="mappin.and.ellipse" size={16} />
-          <View>
-            <ThemedText type="smallBold">{spot.name}</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
-              {spot.region}
-            </ThemedText>
-          </View>
-        </Pressable>
+        <View style={styles.spotGroup}>
+          <Pressable onPress={() => router.navigate('/spots')} style={styles.spotButton} accessibilityRole="button">
+            <Icon name="mappin.and.ellipse" size={16} />
+            <View style={{ flexShrink: 1 }}>
+              <ThemedText type="smallBold" numberOfLines={1}>
+                {spot.name}
+              </ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                {spot.region}
+              </ThemedText>
+            </View>
+          </Pressable>
+          <Pressable
+            onPress={() => toggleFavorite(spotId)}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel={favorite ? `Remove ${spot.name} from favorites` : `Add ${spot.name} to favorites`}>
+            <Icon name={favorite ? 'star.fill' : 'star'} size={20} color={favorite ? Colors.dark.maybe : Colors.dark.textSecondary} />
+          </Pressable>
+        </View>
       </View>
 
       <ActivityPicker value={activityId} onChange={setActivity} />
@@ -70,9 +82,7 @@ export default function TodayScreen() {
               {activity.name} right now at {spot.name}
             </ThemedText>
             <VerdictPill verdict={rating.verdict} large />
-            <ThemedText>
-              {rating.reasons.length ? rating.reasons.join(' · ') : 'Conditions look good.'}
-            </ThemedText>
+            <ThemedText>{rating.reasons.length ? rating.reasons.join(' · ') : 'Conditions look good.'}</ThemedText>
             {nextBest ? (
               <Pressable onPress={() => router.navigate('/best-times')} style={styles.nextBest}>
                 <Icon name="clock" size={14} />
@@ -91,21 +101,10 @@ export default function TodayScreen() {
           <TideCard forecast={forecast} units={units} stationName={spot.tideStation.name} now={now} />
 
           <ThemedText type="smallBold">Next 12 hours</ThemedText>
-          <HourlyStrip
-            hours={forecast.hours.slice(index, index + 12)}
-            activity={activity}
-            spot={spot}
-            units={units}
-            utcOffset={forecast.utcOffset}
-          />
+          <HourlyStrip hours={forecast.hours.slice(index, index + 12)} activity={activity} spot={spot} units={units} utcOffset={forecast.utcOffset} />
 
           <ThemedText type="smallBold">7-day forecast for {activity.name.toLowerCase()}</ThemedText>
-          <DailyForecast
-            days={summarizeDays(forecast, activity, spot, now)}
-            units={units}
-            utcOffset={forecast.utcOffset}
-            now={now}
-          />
+          <DailyForecast days={summarizeDays(forecast, activity, spot, now)} units={units} utcOffset={forecast.utcOffset} now={now} />
 
           <ThemedText type="small" themeColor="textSecondary" style={styles.updated}>
             Updated {clock(forecast.fetchedAt, forecast.utcOffset)}. Data from Open-Meteo and NOAA.
@@ -120,9 +119,22 @@ export default function TodayScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two, paddingTop: Spacing.three },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+    paddingTop: Spacing.three,
+  },
   logo: { width: 198, height: 66 },
+  spotGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    flexShrink: 1,
+  },
   spotButton: {
+    flexShrink: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -131,8 +143,17 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 12,
   },
-  center: { alignItems: 'center', paddingVertical: Spacing.five, gap: Spacing.three },
-  retry: { backgroundColor: Colors.dark.accent, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999 },
+  center: {
+    alignItems: 'center',
+    paddingVertical: Spacing.five,
+    gap: Spacing.three,
+  },
+  retry: {
+    backgroundColor: Colors.dark.accent,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 999,
+  },
   verdictCard: { alignItems: 'flex-start', gap: Spacing.two },
   nextBest: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   updated: { textAlign: 'center' },
