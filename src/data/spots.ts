@@ -40,9 +40,12 @@ export const Spots: Spot[] = [
   // Atlantic
   { id: 'fernandina', name: 'Fernandina Beach', region: 'Atlantic', lat: 30.67, lon: -81.41, facing: 90, tideStation: Stations.fernandina },
   { id: 'jax-beach', name: 'Jacksonville Beach', region: 'Atlantic', lat: 30.29, lon: -81.37, facing: 90, tideStation: Stations.mayport },
+  { id: 'st-augustine', name: 'St. Augustine', region: 'Atlantic', lat: 29.86, lon: -81.18, facing: 90, tideStation: Stations.mayport },
   { id: 'new-smyrna', name: 'New Smyrna Beach', region: 'Atlantic', lat: 29.03, lon: -80.88, facing: 75, tideStation: Stations.ponceInlet },
   { id: 'cocoa-beach', name: 'Cocoa Beach', region: 'Atlantic', lat: 28.32, lon: -80.58, facing: 90, tideStation: Stations.trident },
+  { id: 'melbourne-beach', name: 'Melbourne Beach', region: 'Atlantic', lat: 28.07, lon: -80.48, facing: 90, tideStation: Stations.trident },
   { id: 'sebastian', name: 'Sebastian Inlet', region: 'Atlantic', lat: 27.86, lon: -80.42, facing: 75, tideStation: Stations.trident },
+  { id: 'jupiter', name: 'Jupiter Inlet', region: 'Atlantic', lat: 26.94, lon: -79.98, facing: 90, tideStation: Stations.lakeWorth },
   { id: 'palm-beach', name: 'Palm Beach', region: 'Atlantic', lat: 26.71, lon: -80.01, facing: 90, tideStation: Stations.lakeWorth },
   { id: 'miami', name: 'Miami Beach', region: 'Atlantic', lat: 25.79, lon: -80.11, facing: 90, tideStation: Stations.virginiaKey },
   // Keys
@@ -53,6 +56,7 @@ export const Spots: Spot[] = [
   // Gulf
   { id: 'naples', name: 'Naples', region: 'Gulf', lat: 26.14, lon: -81.83, facing: 270, tideStation: Stations.naples },
   { id: 'fort-myers-beach', name: 'Fort Myers Beach', region: 'Gulf', lat: 26.43, lon: -81.96, facing: 240, tideStation: Stations.fortMyers },
+  { id: 'boca-grande', name: 'Boca Grande', region: 'Gulf', lat: 26.72, lon: -82.36, facing: 255, tideStation: Stations.fortMyers },
   { id: 'siesta-key', name: 'Siesta Key', region: 'Gulf', lat: 27.27, lon: -82.58, facing: 260, tideStation: Stations.stPete },
   { id: 'st-pete-beach', name: 'St. Pete Beach', region: 'Gulf', lat: 27.72, lon: -82.77, facing: 260, tideStation: Stations.stPete },
   { id: 'clearwater', name: 'Clearwater Beach', region: 'Gulf', lat: 27.98, lon: -82.85, facing: 270, tideStation: Stations.clearwater },

@@ -121,8 +121,8 @@ export function WebsiteButton() {
 export function Disclaimer() {
   return (
     <ThemedText type="small" themeColor="textSecondary" style={styles.disclaimer}>
-      Verdicts are rules of thumb, not official guidance. Always check the National Weather Service marine forecast
-      and use your own judgment on the water.
+      Ratings are general guidance, not an official forecast. Florida weather changes fast. Check the National
+      Weather Service marine forecast, follow small craft advisories and other alerts, and use your own judgment.
     </ThemedText>
   );
 }
