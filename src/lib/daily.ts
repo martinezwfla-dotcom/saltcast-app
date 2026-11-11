@@ -19,8 +19,8 @@ export type DaySummary = {
   /** The best daylight hour for the activity. */
   best?: { hour: HourForecast; rating: HourVerdict };
   /**
-   * The rating for most of the daylight hours, leaning to the worse one.
-   * A calm morning doesn't make a windy afternoon a Go.
+   * The rating of the worst daylight hour, so it matches the max wind and seas shown for the day.
+   * A calm morning doesn't make a windy afternoon a Go; the better window is shown separately.
    */
   verdict?: Verdict;
   /** The longest daylight stretch at the best hour's verdict, when it beats the day's rating. */
@@ -92,8 +92,13 @@ export function summarizeDays(forecast: Forecast, activity: Activity, spot: Spot
         }
       }
 
-      const ranks = rated.map((r) => verdictRank(r.rating.verdict)).sort((a, b) => a - b);
-      const verdict = rated.length ? rated.find((r) => verdictRank(r.rating.verdict) === ranks[Math.floor((ranks.length - 1) / 2)])!.rating.verdict : undefined;
+      // The day is rated by its worst daylight hour, to match the day's max wind and seas shown in the row.
+      // The best window, if better, is shown next to it.
+      const worst = rated.reduce<(typeof rated)[number] | undefined>(
+        (w, r) => (!w || verdictRank(r.rating.verdict) < verdictRank(w.rating.verdict) ? r : w),
+        undefined,
+      );
+      const verdict = worst?.rating.verdict;
 
       let window: DaySummary['window'];
       if (best && verdict && verdictRank(best.rating.verdict) > verdictRank(verdict)) {

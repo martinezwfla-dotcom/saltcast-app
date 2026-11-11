@@ -8,12 +8,12 @@ import type { SFSymbol } from 'expo-symbols';
 const SeasLimits = { good: 1.17, maybe: 2.5 };
 
 /**
- * Fishing and boating wind: Go up to about 9 kt, Not ideal up to 20 kt, No Go over 20 kt.
- * `good` sits below 9 kt so the Go cutoff (a quarter of the way to `maybe`) lands at 9 kt.
- * `maybe` is 20.5 so a wind shown as 20 kt is still Not ideal.
- * Gusts are judged 6 kt higher: Go to about 15 kt, No Go over 26 kt.
+ * Wind for fishing, boating, diving and kayak/SUP: Go under 15 kt, Not ideal 15 to 20 kt, No Go over 20 kt.
+ * An hour is a Go until wind is a quarter of the way from `good` to `maybe`, so `good` is set
+ * to put that cutoff at 14.5 kt (shown as 15 kt and up when rounded). `maybe` is 20.5 so a wind
+ * shown as 20 kt is still Not ideal. Gusts are judged 6 kt higher: Not ideal over about 20 kt, No Go over 26 kt.
  */
-const FishBoatWind = { good: 5.17, maybe: 20.5 };
+const WaterWind = { good: 12.5, maybe: 20.5 };
 
 export type ActivityId = 'fishing' | 'surfing' | 'diving' | 'boating' | 'sailing' | 'paddling';
 
@@ -45,7 +45,7 @@ export const Activities: Activity[] = [
     id: 'fishing',
     name: 'Fishing',
     icon: 'fish',
-    rules: { wind: FishBoatWind, waves: SeasLimits },
+    rules: { wind: WaterWind, waves: SeasLimits },
     tips: [
       'Fish bite best around a moving tide. Plan to be on the spot an hour either side of high or low water.',
       'A falling barometer before a front often turns the bite on. Get out ahead of it, not after.',
@@ -74,7 +74,7 @@ export const Activities: Activity[] = [
     id: 'diving',
     name: 'Diving & Snorkeling',
     icon: 'water.waves',
-    rules: { wind: { good: 10, maybe: 15 }, waves: SeasLimits },
+    rules: { wind: WaterWind, waves: SeasLimits },
     tips: [
       'Calm seas and light wind for a day or two before you dive usually mean better visibility.',
       'Dive near high tide on reefs close to shore. Clearer ocean water pushes in then.',
@@ -86,7 +86,7 @@ export const Activities: Activity[] = [
     id: 'boating',
     name: 'Boating',
     icon: 'ferry',
-    rules: { wind: FishBoatWind, waves: SeasLimits },
+    rules: { wind: WaterWind, waves: SeasLimits },
     tips: [
       'Wind against the tide in an inlet stacks up steep, dangerous waves. Time inlet runs with the tide.',
       'Summer afternoon storms build fast over land and drift offshore. Plan to be back at the dock by early afternoon.',
@@ -114,7 +114,7 @@ export const Activities: Activity[] = [
     id: 'paddling',
     name: 'Kayak & SUP',
     icon: 'figure.water.fitness',
-    rules: { wind: { good: 8, maybe: 12 }, waves: SeasLimits },
+    rules: { wind: WaterWind, waves: SeasLimits },
     tips: [
       'Paddle into the wind on the way out so it helps you on the way home, when you\'re tired.',
       'Mangrove creeks and the back bays stay calm when the open water is choppy.',
