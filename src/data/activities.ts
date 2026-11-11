@@ -7,6 +7,14 @@ import type { SFSymbol } from 'expo-symbols';
  */
 const SeasLimits = { good: 1.17, maybe: 2.5 };
 
+/**
+ * Fishing and boating wind: Go up to about 9 kt, Not ideal up to 20 kt, No Go over 20 kt.
+ * `good` sits below 9 kt so the Go cutoff (a quarter of the way to `maybe`) lands at 9 kt.
+ * `maybe` is 20.5 so a wind shown as 20 kt is still Not ideal.
+ * Gusts are judged 6 kt higher: Go to about 15 kt, No Go over 26 kt.
+ */
+const FishBoatWind = { good: 5.17, maybe: 20.5 };
+
 export type ActivityId = 'fishing' | 'surfing' | 'diving' | 'boating' | 'sailing' | 'paddling';
 
 /**
@@ -37,7 +45,7 @@ export const Activities: Activity[] = [
     id: 'fishing',
     name: 'Fishing',
     icon: 'fish',
-    rules: { wind: { good: 7, maybe: 15 }, waves: SeasLimits },
+    rules: { wind: FishBoatWind, waves: SeasLimits },
     tips: [
       'Fish bite best around a moving tide. Plan to be on the spot an hour either side of high or low water.',
       'A falling barometer before a front often turns the bite on. Get out ahead of it, not after.',
@@ -78,7 +86,7 @@ export const Activities: Activity[] = [
     id: 'boating',
     name: 'Boating',
     icon: 'ferry',
-    rules: { wind: { good: 7, maybe: 15 }, waves: SeasLimits },
+    rules: { wind: FishBoatWind, waves: SeasLimits },
     tips: [
       'Wind against the tide in an inlet stacks up steep, dangerous waves. Time inlet runs with the tide.',
       'Summer afternoon storms build fast over land and drift offshore. Plan to be back at the dock by early afternoon.',
