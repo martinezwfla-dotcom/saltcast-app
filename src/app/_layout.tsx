@@ -6,6 +6,7 @@ import { useEffect, type ReactNode } from 'react';
 import { AppState, Platform } from 'react-native';
 
 import AppTabs from '@/components/app-tabs';
+import { SafetyNotice } from '@/components/safety-notice';
 import { Colors } from '@/constants/theme';
 import type { ActivityId } from '@/data/activities';
 import { refreshAlerts, setBackgroundAlerts } from '@/lib/alerts';
@@ -82,6 +83,7 @@ export default function RootLayout() {
       <SettingsProvider>
         <HideSplashWhenReady>
           <AlertsSync />
+          <SafetyNotice />
           <AppTabs />
         </HideSplashWhenReady>
       </SettingsProvider>
