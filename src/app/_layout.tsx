@@ -10,6 +10,8 @@ import { SafetyNotice } from '@/components/safety-notice';
 import { Colors } from '@/constants/theme';
 import type { ActivityId } from '@/data/activities';
 import { refreshAlerts, setBackgroundAlerts } from '@/lib/alerts';
+import { nearestSpot, syncChangeAlerts } from '@/lib/push';
+import { getSpot } from '@/data/spots';
 import { SettingsProvider, useSettings } from '@/state/settings';
 
 SplashScreen.preventAutoHideAsync();
@@ -53,21 +55,57 @@ function AlertsSync() {
     };
   }, [loaded, alerts, favorites, customSpots]);
 
-  return Platform.OS === 'web' ? null : <AlertTaps />;
+  return Platform.OS === 'web' ? null : (
+    <>
+      <ChangeAlertsSync />
+      <AlertTaps />
+    </>
+  );
+}
+
+/** Keeps the server's list of watched spots in step with the favorites. */
+function ChangeAlertsSync() {
+  const { loaded, changeAlerts, favorites, customSpots } = useSettings();
+  const key = changeAlerts ? favorites.join('|') + '#' + customSpots.map((c) => c.id).join('|') : 'off';
+
+  useEffect(() => {
+    if (!loaded || Platform.OS === 'web') return;
+    const spots = favorites.map(getSpot).filter((s, i) => s.id === favorites[i]);
+    const run = () => syncChangeAlerts(changeAlerts, spots).catch(() => false);
+    // Wait a moment so several quick star taps send one update.
+    const timer = setTimeout(run, 2000);
+    // Opening the app refreshes the list, so the server keeps a current token.
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && changeAlerts) run();
+    });
+    return () => {
+      clearTimeout(timer);
+      sub.remove();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded, key]);
+
+  return null;
 }
 
 /** Opens the spot and activity of a Go alert the user tapped. Not available on web. */
 function AlertTaps() {
-  const { setSpot, setActivity } = useSettings();
+  const { setSpot, setActivity, favorites } = useSettings();
   const response = Notifications.useLastNotificationResponse();
 
   useEffect(() => {
     const data = response?.notification.request.content.data as
-      | { spotId?: string; activityId?: ActivityId }
+      | { spotId?: string; activityId?: ActivityId; lat?: number; lon?: number }
       | undefined;
-    if (!data?.spotId) return;
-    setSpot(data.spotId);
-    if (data.activityId) setActivity(data.activityId);
+    // Weather change alerts from the server carry a position; open the favorite there.
+    const near =
+      !data?.spotId && typeof data?.lat === 'number' && typeof data?.lon === 'number'
+        ? nearestSpot(favorites.map(getSpot), data.lat, data.lon)
+        : undefined;
+    const spotId = data?.spotId ?? near?.id;
+    if (!spotId) return;
+    setSpot(spotId);
+    if (data?.activityId) setActivity(data.activityId);
     router.navigate('/');
     // Only react to a new tap, not to settings changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps

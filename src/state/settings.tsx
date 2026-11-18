@@ -14,6 +14,8 @@ type Settings = {
   customSpots: Spot[];
   /** Go alerts for favorite spots. */
   alerts: AlertSettings;
+  /** Server push alerts when the weather at a favorite is improving, changing or turns severe. */
+  changeAlerts: boolean;
   /** Built-in spots removed from the Spots list. */
   hidden: string[];
   units: Units;
@@ -27,6 +29,7 @@ type SettingsContextValue = Settings & {
   /** Saves a searched place and makes it the current spot. */
   addCustomSpot: (spot: Spot) => void;
   setAlerts: (alerts: AlertSettings) => void;
+  setChangeAlerts: (on: boolean) => void;
   /** Removes a spot from the list. A searched place is deleted. */
   hideSpot: (id: string) => void;
   /** Puts a removed spot back, or all of them when no id is given. */
@@ -42,6 +45,7 @@ const Defaults: Settings = {
   favorites: [],
   customSpots: [],
   alerts: DefaultAlerts,
+  changeAlerts: false,
   hidden: [],
   units: 'imperial',
 };
@@ -71,6 +75,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           if (!Array.isArray(saved.customSpots)) saved.customSpots = [];
           if (!saved.alerts || !Array.isArray(saved.alerts.activities)) saved.alerts = DefaultAlerts;
           if (!Array.isArray(saved.hidden)) saved.hidden = [];
+          if (typeof saved.changeAlerts !== 'boolean') saved.changeAlerts = false;
           setSettings(saved);
         }
       })
@@ -104,6 +109,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           }),
         ),
       setAlerts: (alerts) => setSettings((s) => ({ ...s, alerts })),
+      setChangeAlerts: (changeAlerts) => setSettings((s) => ({ ...s, changeAlerts })),
       hideSpot: (id) =>
         setSettings((s) => {
           const custom = s.customSpots.some((c) => c.id === id);
