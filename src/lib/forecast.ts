@@ -21,8 +21,27 @@ export type HourForecast = {
 
 export type TideEvent = { time: number; height: number; type: 'high' | 'low' };
 
+/**
+ * Which water the forecast is for, as on the website:
+ * inshore = bays, ICW and harbors (chop from the wind, no ocean swell),
+ * near = the beach out to about 20 nm (the default), off = 20 to 60 nm out.
+ */
+export type Water = 'inshore' | 'near' | 'off';
+
+export const WaterLabels: Record<Water, { label: string; desc: string }> = {
+  inshore: { label: 'Inshore', desc: 'Bays, ICW, harbors' },
+  near: { label: 'Nearshore', desc: 'Beach to 20 nm' },
+  off: { label: 'Offshore', desc: '20 to 60 nm' },
+};
+
+/** Surf forecasts only make sense at the beach. */
+export function waterFor(water: Water, activityId: string): Water {
+  return activityId === 'surfing' ? 'near' : water;
+}
+
 export type Forecast = {
   spotId: string;
+  water: Water;
   fetchedAt: number;
   /** Offset of the spot's local time from UTC, in seconds. */
   utcOffset: number;
@@ -52,10 +71,38 @@ function localToUtc(local: string, utcOffset: number) {
   return Date.parse(`${local}:00Z`) - utcOffset * 1000;
 }
 
-function fetchWeather(spot: Spot) {
+type Point = { lat: number; lon: number; timezone: string };
+
+/**
+ * Where to ask for the forecast. Offshore uses a point about 30 nm out along the way the
+ * beach faces, with the land time zone named (far out, "auto" can pick a nautical zone).
+ */
+function forecastPoint(spot: Spot, water: Water): Point {
+  if (water !== 'off') return { lat: spot.lat, lon: spot.lon, timezone: 'auto' };
+  const rad = (spot.facing * Math.PI) / 180;
+  const lat = spot.lat + 0.5 * Math.cos(rad);
+  const lon = spot.lon + (0.5 * Math.sin(rad)) / Math.cos((spot.lat * Math.PI) / 180);
+  return {
+    lat: +lat.toFixed(3),
+    lon: +lon.toFixed(3),
+    timezone: spot.lon < -85.3 ? 'America/Chicago' : 'America/New_York',
+  };
+}
+
+/** Wind chop in feet on protected water: fetch-limited waves over about 5 miles, capped at 3.5 ft. */
+export function chopFeet(kt: number | null) {
+  if (kt == null) return null;
+  const u = Math.max(kt, 1) * 0.5144;
+  const ua = 0.71 * Math.pow(u, 1.23);
+  const g = 9.81;
+  const fetchMeters = 8000;
+  return Math.min(0.0016 * Math.sqrt((g * fetchMeters) / (ua * ua)) * ((ua * ua) / g) * FeetPerMeter, 3.5);
+}
+
+function fetchWeather(p: Point, days: number) {
   const params = new URLSearchParams({
-    latitude: String(spot.lat),
-    longitude: String(spot.lon),
+    latitude: String(p.lat),
+    longitude: String(p.lon),
     hourly: [
       'temperature_2m',
       'precipitation_probability',
@@ -67,16 +114,16 @@ function fetchWeather(spot: Spot) {
     ].join(','),
     wind_speed_unit: 'kn',
     temperature_unit: 'fahrenheit',
-    timezone: 'auto',
-    forecast_days: '7',
+    timezone: p.timezone,
+    forecast_days: String(days),
   });
   return getJson<OpenMeteoResponse>(`https://api.open-meteo.com/v1/forecast?${params}`);
 }
 
-function fetchMarine(spot: Spot) {
+function fetchMarine(p: Point, days: number) {
   const params = new URLSearchParams({
-    latitude: String(spot.lat),
-    longitude: String(spot.lon),
+    latitude: String(p.lat),
+    longitude: String(p.lon),
     hourly: [
       'wave_height',
       'wave_direction',
@@ -86,8 +133,8 @@ function fetchMarine(spot: Spot) {
       'swell_wave_period',
       'sea_surface_temperature',
     ].join(','),
-    timezone: 'auto',
-    forecast_days: '7',
+    timezone: p.timezone,
+    forecast_days: String(days),
   });
   return getJson<OpenMeteoResponse>(`https://marine-api.open-meteo.com/v1/marine?${params}`);
 }
@@ -128,10 +175,28 @@ async function fetchTides(spot: Spot): Promise<TideEvent[]> {
   }));
 }
 
-export async function fetchForecast(spot: Spot): Promise<Forecast> {
-  const [weather, marine, tides] = await Promise.all([
-    fetchWeather(spot),
-    fetchMarine(spot),
+/** Asks for 10 days; if the marine service won't give that many, 8; offshore falls back to the automatic time zone. */
+async function fetchWeatherAndMarine(spot: Spot, water: Water) {
+  const p = forecastPoint(spot, water);
+  const tries: [Point, number][] = [
+    [p, 10],
+    [p, 8],
+  ];
+  if (p.timezone !== 'auto') tries.push([{ ...p, timezone: 'auto' }, 8]);
+  let last: unknown;
+  for (const [point, days] of tries) {
+    try {
+      return await Promise.all([fetchWeather(point, days), fetchMarine(point, days)]);
+    } catch (e) {
+      last = e;
+    }
+  }
+  throw last;
+}
+
+export async function fetchForecast(spot: Spot, water: Water = 'near'): Promise<Forecast> {
+  const [[weather, marine], tides] = await Promise.all([
+    fetchWeatherAndMarine(spot, water),
     fetchTides(spot).then(
       (t) => ({ ok: true as const, tides: t }),
       (e: Error) => ({ ok: false as const, error: e.message }),
@@ -168,8 +233,21 @@ export async function fetchForecast(spot: Spot): Promise<Forecast> {
     };
   });
 
+  // Inshore: protected water, so the waves are wind chop and there is no ocean swell.
+  if (water === 'inshore') {
+    for (const h of hours) {
+      h.waveHeight = chopFeet(h.wind);
+      h.waveDir = h.windDir;
+      h.wavePeriod = null;
+      h.swellHeight = null;
+      h.swellDir = null;
+      h.swellPeriod = null;
+    }
+  }
+
   return {
     spotId: spot.id,
+    water,
     fetchedAt: Date.now(),
     utcOffset: offset,
     hours,

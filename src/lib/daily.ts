@@ -60,7 +60,7 @@ function dayWeather(hours: HourForecast[]) {
 }
 
 /** Groups the forecast into the spot's local days, starting with today. */
-export function summarizeDays(forecast: Forecast, activity: Activity, spot: Spot, now: number, days = 7): DaySummary[] {
+export function summarizeDays(forecast: Forecast, activity: Activity, spot: Spot, now: number, days = 10): DaySummary[] {
   const dayOf = (t: number) => Math.floor((t + forecast.utcOffset * 1000) / 86400000);
   const today = dayOf(now);
   const groups = new Map<number, HourForecast[]>();

@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { ConditionsGrid, DailyForecast, HourlyStrip, TideCard } from '@/components/conditions';
+import { BuoyCard, LocalCard, WaterPicker } from '@/components/extras';
 import { ThemedText } from '@/components/themed-text';
 import { ActivityPicker, Card, Disclaimer, Icon, openWebsite, Screen, VerdictPill, WebsiteButton } from '@/components/ui';
 import { Colors, Spacing } from '@/constants/theme';
@@ -12,23 +13,25 @@ import { useForecast } from '@/hooks/use-forecast';
 import { useNow } from '@/hooks/use-now';
 import { findBestWindows } from '@/lib/best-times';
 import { summarizeDays } from '@/lib/daily';
-import { currentHourIndex } from '@/lib/forecast';
+import { currentHourIndex, waterFor, WaterLabels } from '@/lib/forecast';
 import { clock, timeRange } from '@/lib/format';
 import { rateHour, VerdictLabel } from '@/lib/verdict';
 import { useSettings } from '@/state/settings';
 
 export default function TodayScreen() {
-  const { activityId, spotId, units, setActivity, favorites, toggleFavorite } = useSettings();
+  const { activityId, spotId, units, setActivity, favorites, toggleFavorite, water: chosenWater, setWater } = useSettings();
+  const water = waterFor(chosenWater, activityId);
   const favorite = favorites.includes(spotId);
   const activity = getActivity(activityId);
   const spot = getSpot(spotId);
-  const { forecast, loading, error, refresh } = useForecast(spotId);
+  const { forecast, loading, error, refresh } = useForecast(spotId, water);
   const now = useNow();
 
   const index = forecast ? currentHourIndex(forecast, now) : 0;
   const hour = forecast?.hours[index];
   const rating = hour ? rateHour(hour, activity, spot) : undefined;
   const nextBest = forecast ? findBestWindows(forecast, activity, spot, now, 1)[0] : undefined;
+  const days = forecast ? summarizeDays(forecast, activity, spot, now) : [];
 
   return (
     <Screen refreshControl={<RefreshControl refreshing={loading && !!forecast} onRefresh={refresh} tintColor={Colors.dark.accent} />}>
@@ -59,6 +62,7 @@ export default function TodayScreen() {
       </View>
 
       <ActivityPicker value={activityId} onChange={setActivity} />
+      <WaterPicker value={chosenWater} onChange={setWater} activityId={activityId} />
 
       {!forecast ? (
         <Card style={styles.center}>
@@ -80,6 +84,7 @@ export default function TodayScreen() {
           <Card style={styles.verdictCard}>
             <ThemedText type="small" themeColor="textSecondary">
               {activity.name} right now at {spot.name}
+              {water !== 'near' ? ` · ${WaterLabels[water].label}` : ''}
             </ThemedText>
             <VerdictPill verdict={rating.verdict} large />
             <ThemedText>{rating.reasons.length ? rating.reasons.join(' · ') : 'Conditions look good.'}</ThemedText>
@@ -92,19 +97,23 @@ export default function TodayScreen() {
               </Pressable>
             ) : (
               <ThemedText type="small" themeColor="textSecondary">
-                No good daylight window in the next 48 hours.
+                No good daylight window in the next 72 hours.
               </ThemedText>
             )}
           </Card>
 
+          <LocalCard spot={spot} activityId={activityId} />
           <ConditionsGrid hour={hour} spot={spot} units={units} />
+          <BuoyCard spot={spot} water={water} units={units} />
           <TideCard forecast={forecast} units={units} stationName={spot.tideStation.name} now={now} />
 
           <ThemedText type="smallBold">Next 12 hours</ThemedText>
           <HourlyStrip hours={forecast.hours.slice(index, index + 12)} activity={activity} spot={spot} units={units} utcOffset={forecast.utcOffset} />
 
-          <ThemedText type="smallBold">7-day forecast for {activity.name.toLowerCase()}</ThemedText>
-          <DailyForecast days={summarizeDays(forecast, activity, spot, now)} units={units} utcOffset={forecast.utcOffset} now={now} />
+          <ThemedText type="smallBold">
+            {days.length}-day forecast for {activity.name.toLowerCase()}
+          </ThemedText>
+          <DailyForecast days={days} units={units} utcOffset={forecast.utcOffset} now={now} />
 
           <ThemedText type="small" themeColor="textSecondary" style={styles.updated}>
             Updated {clock(forecast.fetchedAt, forecast.utcOffset)}. Data from Open-Meteo and NOAA.

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useSyncExternalStore } from 'react';
 import { AppState } from 'react-native';
 
 import { getSpot } from '@/data/spots';
-import { fetchForecast, type Forecast } from '@/lib/forecast';
+import { fetchForecast, type Forecast, type Water } from '@/lib/forecast';
 
 /** Forecasts are reused for 30 minutes before fetching again. */
 const MaxAge = 30 * 60 * 1000;
@@ -24,33 +24,36 @@ function subscribe(listener: () => void) {
   return () => listeners.delete(listener);
 }
 
-async function load(spotId: string, force = false) {
-  const entry = entries.get(spotId) ?? Empty;
+async function load(key: string, force = false) {
+  const [spotId, water] = key.split('|') as [string, Water];
+  const entry = entries.get(key) ?? Empty;
   if (entry.loading) return;
   if (!force && entry.forecast && Date.now() - entry.forecast.fetchedAt < MaxAge) return;
 
-  update(spotId, { loading: true, error: undefined });
+  update(key, { loading: true, error: undefined });
   try {
-    const forecast = await fetchForecast(getSpot(spotId));
-    update(spotId, { forecast, loading: false });
+    const forecast = await fetchForecast(getSpot(spotId), water);
+    update(key, { forecast, loading: false });
   } catch (e) {
-    update(spotId, { loading: false, error: e instanceof Error ? e.message : 'Could not load the forecast' });
+    update(key, { loading: false, error: e instanceof Error ? e.message : 'Could not load the forecast' });
   }
 }
 
-export function useForecast(spotId: string) {
-  const entry = useSyncExternalStore(subscribe, () => entries.get(spotId) ?? Empty);
+/** The forecast for a spot and water (inshore, nearshore or offshore). */
+export function useForecast(spotId: string, water: Water = 'near') {
+  const key = `${spotId}|${water}`;
+  const entry = useSyncExternalStore(subscribe, () => entries.get(key) ?? Empty);
 
   useEffect(() => {
-    load(spotId);
+    load(key);
     // Refresh when the app comes back to the foreground.
     const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') load(spotId);
+      if (state === 'active') load(key);
     });
     return () => sub.remove();
-  }, [spotId]);
+  }, [key]);
 
-  const refresh = useCallback(() => load(spotId, true), [spotId]);
+  const refresh = useCallback(() => load(key, true), [key]);
 
   return { ...entry, refresh };
 }

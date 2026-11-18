@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { DefaultActivityId, type ActivityId } from '@/data/activities';
 import { DefaultAlerts, SettingsStorageKey, type AlertSettings } from '@/lib/alerts';
 import { DefaultSpotId, setCustomSpots, Spots, type Spot } from '@/data/spots';
+import type { Water } from '@/lib/forecast';
 import type { Units } from '@/lib/format';
 
 type Settings = {
@@ -19,6 +20,8 @@ type Settings = {
   /** Built-in spots removed from the Spots list. */
   hidden: string[];
   units: Units;
+  /** Inshore, nearshore (default) or offshore forecasts. */
+  water: Water;
 };
 
 type SettingsContextValue = Settings & {
@@ -35,6 +38,7 @@ type SettingsContextValue = Settings & {
   /** Puts a removed spot back, or all of them when no id is given. */
   showSpot: (id?: string) => void;
   setUnits: (units: Units) => void;
+  setWater: (water: Water) => void;
 };
 
 const StorageKey = SettingsStorageKey;
@@ -48,6 +52,7 @@ const Defaults: Settings = {
   changeAlerts: false,
   hidden: [],
   units: 'imperial',
+  water: 'near',
 };
 
 /** Drops searched places that are neither a favorite nor the current spot. */
@@ -76,6 +81,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           if (!saved.alerts || !Array.isArray(saved.alerts.activities)) saved.alerts = DefaultAlerts;
           if (!Array.isArray(saved.hidden)) saved.hidden = [];
           if (typeof saved.changeAlerts !== 'boolean') saved.changeAlerts = false;
+          if (!['inshore', 'near', 'off'].includes(saved.water)) saved.water = 'near';
           setSettings(saved);
         }
       })
@@ -122,6 +128,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         }),
       showSpot: (id) => setSettings((s) => ({ ...s, hidden: id ? s.hidden.filter((h) => h !== id) : [] })),
       setUnits: (units) => setSettings((s) => ({ ...s, units })),
+      setWater: (water) => setSettings((s) => ({ ...s, water })),
     }),
     [settings, loaded],
   );
