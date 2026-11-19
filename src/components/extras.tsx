@@ -161,12 +161,14 @@ export function LocalCard({ spot, activityId }: { spot: Spot; activityId: Activi
   const where = exact ? spot.name : `the ${area.name} area`;
   return (
     <Card>
-      <ThemedText type="small">
-        <ThemedText type="smallBold" themeColor="accent">
-          SEASON{'  '}
+      {activityId === 'fishing' ? (
+        <ThemedText type="small">
+          <ThemedText type="smallBold" themeColor="accent">
+            SEASON{'  '}
+          </ThemedText>
+          {area.season}
         </ThemedText>
-        {area.season}
-      </ThemedText>
+      ) : null}
       <View style={styles.buttons}>
         {area.cams.length ? (
           <Pressable onPress={() => setOpen(open === 'cams' ? undefined : 'cams')} style={[styles.btn, open === 'cams' && styles.btnOn]} accessibilityRole="button">
