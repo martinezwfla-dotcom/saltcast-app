@@ -150,7 +150,7 @@ function LinkList({ title, links }: { title: string; links: LocalLink[] }) {
   );
 }
 
-/** Fishing season, live cams and local fishing or surf reports for the spot's area. */
+/** Live cams and local fishing or surf reports for the spot's area. */
 export function LocalCard({ spot, activityId }: { spot: Spot; activityId: ActivityId }) {
   const [open, setOpen] = useState<'cams' | 'report'>();
   const near = nearestArea(spot.lat, spot.lon);
@@ -161,14 +161,6 @@ export function LocalCard({ spot, activityId }: { spot: Spot; activityId: Activi
   const where = exact ? spot.name : `the ${area.name} area`;
   return (
     <Card>
-      {activityId === 'fishing' ? (
-        <ThemedText type="small">
-          <ThemedText type="smallBold" themeColor="accent">
-            SEASON{'  '}
-          </ThemedText>
-          {area.season}
-        </ThemedText>
-      ) : null}
       <View style={styles.buttons}>
         {area.cams.length ? (
           <Pressable onPress={() => setOpen(open === 'cams' ? undefined : 'cams')} style={[styles.btn, open === 'cams' && styles.btnOn]} accessibilityRole="button">
@@ -196,11 +188,21 @@ export function LocalCard({ spot, activityId }: { spot: Spot; activityId: Activi
 /** Incoming and outgoing tide stretches in daylight for today and the next two days. */
 export function TideFishingCard({ forecast, spot, now }: { forecast: Forecast; spot: Spot; now: number }) {
   const days = tideFishing(forecast, spot, now);
-  if (!days.length) return null;
+  const near = nearestArea(spot.lat, spot.lon);
+  const season = near?.exact ? near.area.season : undefined;
+  if (!days.length && !season) return null;
   const off = forecast.utcOffset;
   return (
     <Card>
       <ThemedText style={styles.title}>Best fishing times</ThemedText>
+      {season ? (
+        <ThemedText type="small">
+          <ThemedText type="smallBold" themeColor="accent">
+            SEASON{'  '}
+          </ThemedText>
+          {season}
+        </ThemedText>
+      ) : null}
       <ThemedText type="small" themeColor="textSecondary">
         Fish feed best while the tide is moving. These are the incoming and outgoing stretches in daylight, skipping the slack water
         around each high and low. Tides from NOAA {spot.tideStation.name}.
