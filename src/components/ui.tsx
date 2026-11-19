@@ -90,7 +90,8 @@ export function ActivityPicker({ value, onChange }: { value: ActivityId; onChang
   );
 }
 
-export const WebsiteUrl = 'https://saltcastflorida.com';
+/** ?app=1 tells the website it was opened from the app (its Alerts button then points back to the app's own switch). */
+export const WebsiteUrl = 'https://saltcastflorida.com/?app=1';
 
 export function openWebsite() {
   WebBrowser.openBrowserAsync(WebsiteUrl);

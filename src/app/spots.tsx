@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Card, Header, Icon, Screen } from '@/components/ui';
+import { Card, Header, Icon, Screen, WebsiteUrl } from '@/components/ui';
 import { Colors, Spacing } from '@/constants/theme';
 import { Activities } from '@/data/activities';
 import { requestAlertPermission } from '@/lib/alerts';
@@ -403,7 +403,7 @@ export default function SpotsScreen() {
 
       <ThemedText type="smallBold">About</ThemedText>
       <Card style={styles.list}>
-        <Pressable style={styles.row} onPress={() => WebBrowser.openBrowserAsync('https://saltcastflorida.com')}>
+        <Pressable style={styles.row} onPress={() => WebBrowser.openBrowserAsync(WebsiteUrl)}>
           <ThemedText style={{ flex: 1 }}>saltcastflorida.com</ThemedText>
           <Icon name="chevron.right" size={14} />
         </Pressable>
