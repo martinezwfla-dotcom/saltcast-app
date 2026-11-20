@@ -2,6 +2,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Card, Icon, VerdictColor, VerdictPill } from '@/components/ui';
+import { moonInfo } from '@/lib/moon';
 import { Colors, Spacing } from '@/constants/theme';
 import type { Activity } from '@/data/activities';
 import type { Spot } from '@/data/spots';
@@ -50,6 +51,11 @@ function WindArrow({ deg, size }: { deg: number; size: number }) {
   );
 }
 
+function MoonStat({ time }: { time: number }) {
+  const m = moonInfo(time);
+  return <Stat icon={m.symbol} label="Moon" value={`${m.pct}% lit`} detail={`${m.name}. ${m.next}`} />;
+}
+
 export function ConditionsGrid({ hour, spot, units }: { hour: HourForecast; spot: Spot; units: Units }) {
   const relation = hour.windDir != null ? windRelation(hour.windDir, spot.facing) : null;
   return (
@@ -79,6 +85,7 @@ export function ConditionsGrid({ hour, spot, units }: { hour: HourForecast; spot
         value={temperature(hour.airTemp, units)}
         detail={`${weatherText(hour.weatherCode, hour.isDay)}${hour.precipChance != null ? `, ${hour.precipChance}% rain` : ''}`}
       />
+      <MoonStat time={hour.time} />
     </View>
   );
 }
