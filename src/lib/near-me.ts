@@ -39,8 +39,8 @@ export async function findNearMe(): Promise<NearMe> {
     const spot = makeCustomSpot({
       id: 0,
       name: 'Near you',
-      latitude: +latitude.toFixed(3),
-      longitude: +longitude.toFixed(3),
+      latitude: +latitude.toFixed(2),
+      longitude: +longitude.toFixed(2),
     });
     return { ok: true, spot, custom: true, miles, nearest };
   } catch {
