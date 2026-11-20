@@ -1,6 +1,9 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, Share, StyleSheet, View } from 'react-native';
+
+import { ForecastCharts } from '@/components/charts';
+import { Welcome } from '@/components/welcome';
 
 import { ConditionsGrid, DailyForecast, HourlyStrip, TideCard } from '@/components/conditions';
 import { BuoyCard, LocalCard, WaterPicker } from '@/components/extras';
@@ -14,17 +17,18 @@ import { useNow } from '@/hooks/use-now';
 import { findBestWindows } from '@/lib/best-times';
 import { summarizeDays } from '@/lib/daily';
 import { currentHourIndex, waterFor, WaterLabels } from '@/lib/forecast';
-import { clock, timeRange } from '@/lib/format';
+import { clock, compass, height, timeRange, windSpeed } from '@/lib/format';
+import { nearestArea } from '@/data/local';
 import { rateHour, VerdictLabel } from '@/lib/verdict';
 import { useSettings } from '@/state/settings';
 
 export default function TodayScreen() {
-  const { activityId, spotId, units, setActivity, favorites, toggleFavorite, water: chosenWater, setWater } = useSettings();
+  const { activityId, spotId, units, setActivity, favorites, toggleFavorite, water: chosenWater, setWater, loaded, onboarded } = useSettings();
   const water = waterFor(chosenWater, activityId);
   const favorite = favorites.includes(spotId);
   const activity = getActivity(activityId);
   const spot = getSpot(spotId);
-  const { forecast, loading, error, refresh } = useForecast(spotId, water);
+  const { forecast, loading, error, refresh, offline } = useForecast(spotId, water);
   const now = useNow();
 
   const index = forecast ? currentHourIndex(forecast, now) : 0;
@@ -61,6 +65,8 @@ export default function TodayScreen() {
         </View>
       </View>
 
+      {loaded && !onboarded ? <Welcome /> : null}
+
       <ActivityPicker value={activityId} onChange={setActivity} />
       <WaterPicker value={chosenWater} onChange={setWater} activityId={activityId} />
 
@@ -88,6 +94,11 @@ export default function TodayScreen() {
             </ThemedText>
             <VerdictPill verdict={rating.verdict} large />
             <ThemedText>{rating.reasons.length ? rating.reasons.join(' · ') : 'Conditions look good.'}</ThemedText>
+            {offline ? (
+              <ThemedText type="small" style={{ color: Colors.dark.maybe }}>
+                No connection. Showing the forecast saved at {clock(forecast.fetchedAt, forecast.utcOffset)}. Pull down to try again.
+              </ThemedText>
+            ) : null}
             {nextBest ? (
               <Pressable onPress={() => router.navigate('/best-times')} style={styles.nextBest}>
                 <Icon name="clock" size={14} />
@@ -100,6 +111,23 @@ export default function TodayScreen() {
                 No good daylight window in the next 72 hours.
               </ThemedText>
             )}
+            <Pressable
+              onPress={() => {
+                const near = nearestArea(spot.lat, spot.lon);
+                const slug = near?.exact ? near.area.slug : undefined;
+                const url = slug ? `https://saltcastflorida.com/spots/${slug}/` : 'https://saltcastflorida.com/';
+                Share.share({
+                  message: `${spot.name} ${activity.name.toLowerCase()} right now: ${VerdictLabel[rating.verdict]}. Wind ${compass(hour.windDir)} ${windSpeed(hour.wind, units)}, seas ${height(hour.waveHeight, units)}. Check it on Saltcast Florida: ${url}`,
+                }).catch(() => {});
+              }}
+              style={styles.share}
+              accessibilityRole="button"
+              accessibilityLabel="Share this forecast">
+              <Icon name="square.and.arrow.up" size={16} />
+              <ThemedText type="smallBold" themeColor="accent">
+                Share
+              </ThemedText>
+            </Pressable>
           </Card>
 
           <LocalCard spot={spot} activityId={activityId} />
@@ -109,6 +137,14 @@ export default function TodayScreen() {
 
           <ThemedText type="smallBold">Next 12 hours</ThemedText>
           <HourlyStrip hours={forecast.hours.slice(index, index + 12)} activity={activity} spot={spot} units={units} utcOffset={forecast.utcOffset} />
+
+          <ForecastCharts
+            hours={forecast.hours.slice(index, index + 72)}
+            units={units}
+            utcOffset={forecast.utcOffset}
+            now={now}
+            inshore={water === 'inshore'}
+          />
 
           <ThemedText type="smallBold">
             {days.length}-day forecast for {activity.name.toLowerCase()}
@@ -166,4 +202,14 @@ const styles = StyleSheet.create({
   verdictCard: { alignItems: 'flex-start', gap: Spacing.two },
   nextBest: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   updated: { textAlign: 'center' },
+  share: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minHeight: 44,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: Colors.dark.accent,
+  },
 });

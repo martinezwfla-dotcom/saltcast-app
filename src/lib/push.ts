@@ -13,6 +13,15 @@ import type { Spot } from '@/data/spots';
  */
 const Endpoint = 'https://saltcastflorida.com/api/subscribe';
 
+/** all = every change, fav = only when it turns Favorable (plus warnings), severe = warnings only. */
+export type ChangeAlertMode = 'all' | 'fav' | 'severe';
+
+export const ChangeAlertModes: { value: ChangeAlertMode; label: string; desc: string }[] = [
+  { value: 'all', label: 'Every change', desc: 'Improving, changing or severe weather.' },
+  { value: 'fav', label: 'Only Favorable', desc: 'When it turns Favorable, plus NWS warnings.' },
+  { value: 'severe', label: 'Warnings only', desc: 'NWS marine and severe weather warnings.' },
+];
+
 async function pushToken() {
   if (Platform.OS === 'web' || !Device.isDevice) return null;
   const perm = await Notifications.getPermissionsAsync();
@@ -23,13 +32,13 @@ async function pushToken() {
 }
 
 /** Tells the server which spots to watch. An empty list (or `enabled` false) stops the alerts. */
-export async function syncChangeAlerts(enabled: boolean, spots: Spot[]) {
+export async function syncChangeAlerts(enabled: boolean, spots: Spot[], mode: ChangeAlertMode = 'all') {
   const token = await pushToken();
   if (!token) return false;
   const body = {
     kind: 'expo',
     token,
-    spots: enabled ? spots.slice(0, 30).map((s) => ({ name: s.name, lat: s.lat, lon: s.lon })) : [],
+    spots: enabled ? spots.slice(0, 30).map((s) => ({ name: s.name, lat: s.lat, lon: s.lon, mode })) : [],
   };
   const r = await fetch(Endpoint, {
     method: 'POST',

@@ -5,6 +5,7 @@ import { DefaultActivityId, type ActivityId } from '@/data/activities';
 import { DefaultAlerts, SettingsStorageKey, type AlertSettings } from '@/lib/alerts';
 import { DefaultSpotId, setCustomSpots, Spots, type Spot } from '@/data/spots';
 import type { Water } from '@/lib/forecast';
+import type { ChangeAlertMode } from '@/lib/push';
 import type { Units } from '@/lib/format';
 
 type Settings = {
@@ -17,6 +18,10 @@ type Settings = {
   alerts: AlertSettings;
   /** Server push alerts when the weather at a favorite is improving, changing or turns severe. */
   changeAlerts: boolean;
+  /** What those alerts cover: every change, only when it turns Favorable, or warnings only. */
+  changeAlertMode: ChangeAlertMode;
+  /** The first-run welcome card has been finished or dismissed. */
+  onboarded: boolean;
   /** Built-in spots removed from the Spots list. */
   hidden: string[];
   units: Units;
@@ -33,6 +38,8 @@ type SettingsContextValue = Settings & {
   addCustomSpot: (spot: Spot) => void;
   setAlerts: (alerts: AlertSettings) => void;
   setChangeAlerts: (on: boolean) => void;
+  setChangeAlertMode: (mode: ChangeAlertMode) => void;
+  finishOnboarding: () => void;
   /** Removes a spot from the list. A searched place is deleted. */
   hideSpot: (id: string) => void;
   /** Puts a removed spot back, or all of them when no id is given. */
@@ -50,6 +57,8 @@ const Defaults: Settings = {
   customSpots: [],
   alerts: DefaultAlerts,
   changeAlerts: false,
+  changeAlertMode: 'all',
+  onboarded: false,
   hidden: [],
   units: 'imperial',
   water: 'near',
@@ -73,15 +82,16 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     AsyncStorage.getItem(StorageKey)
       .then((raw) => {
         if (raw) {
-          const saved = {
-            ...Defaults,
-            ...(JSON.parse(raw) as Partial<Settings>),
-          };
+          const parsed = JSON.parse(raw) as Partial<Settings>;
+          const saved = { ...Defaults, ...parsed };
           if (!Array.isArray(saved.customSpots)) saved.customSpots = [];
           if (!saved.alerts || !Array.isArray(saved.alerts.activities)) saved.alerts = DefaultAlerts;
           if (!Array.isArray(saved.hidden)) saved.hidden = [];
           if (typeof saved.changeAlerts !== 'boolean') saved.changeAlerts = false;
           if (!['inshore', 'near', 'off'].includes(saved.water)) saved.water = 'near';
+          if (!['all', 'fav', 'severe'].includes(saved.changeAlertMode)) saved.changeAlertMode = 'all';
+          // People updating from an earlier version have already set the app up.
+          if (typeof parsed.onboarded !== 'boolean') saved.onboarded = true;
           setSettings(saved);
         }
       })
@@ -116,6 +126,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         ),
       setAlerts: (alerts) => setSettings((s) => ({ ...s, alerts })),
       setChangeAlerts: (changeAlerts) => setSettings((s) => ({ ...s, changeAlerts })),
+      setChangeAlertMode: (changeAlertMode) => setSettings((s) => ({ ...s, changeAlertMode })),
+      finishOnboarding: () => setSettings((s) => ({ ...s, onboarded: true })),
       hideSpot: (id) =>
         setSettings((s) => {
           const custom = s.customSpots.some((c) => c.id === id);

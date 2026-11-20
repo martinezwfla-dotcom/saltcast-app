@@ -3,12 +3,13 @@ import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
 
+import { NearMeButton } from '@/components/near-me-button';
 import { ThemedText } from '@/components/themed-text';
 import { Card, Header, Icon, Screen, WebsiteUrl } from '@/components/ui';
 import { Colors, Spacing } from '@/constants/theme';
 import { Activities } from '@/data/activities';
 import { requestAlertPermission } from '@/lib/alerts';
-import { syncChangeAlerts } from '@/lib/push';
+import { ChangeAlertModes, syncChangeAlerts } from '@/lib/push';
 import { makeCustomSpot, Regions, searchPlaces, Spots, type Place, type Spot } from '@/data/spots';
 import type { Units } from '@/lib/format';
 import { useSettings } from '@/state/settings';
@@ -208,7 +209,7 @@ function GoAlerts() {
 }
 
 function ChangeAlerts() {
-  const { changeAlerts, setChangeAlerts, favorites } = useSettings();
+  const { changeAlerts, setChangeAlerts, changeAlertMode, setChangeAlertMode, favorites } = useSettings();
   const [denied, setDenied] = useState(false);
   const [failed, setFailed] = useState(false);
 
@@ -255,6 +256,30 @@ function ChangeAlerts() {
         <ThemedText type="small" themeColor="textSecondary">
           Couldn&apos;t reach Saltcast to turn on alerts. Check your connection and try again.
         </ThemedText>
+      ) : null}
+      {changeAlerts ? (
+        <>
+          <View style={styles.segment}>
+            {ChangeAlertModes.map((m) => {
+              const selected = m.value === changeAlertMode;
+              return (
+                <Pressable
+                  key={m.value}
+                  onPress={() => setChangeAlertMode(m.value)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  style={[styles.segmentItem, selected && styles.segmentSelected]}>
+                  <ThemedText type="smallBold" style={{ color: selected ? C.background : C.text, textAlign: 'center' }}>
+                    {m.label}
+                  </ThemedText>
+                </Pressable>
+              );
+            })}
+          </View>
+          <ThemedText type="small" themeColor="textSecondary">
+            {ChangeAlertModes.find((m) => m.value === changeAlertMode)?.desc}
+          </ThemedText>
+        </>
       ) : null}
       {changeAlerts ? (
         <ThemedText type="small" themeColor="textSecondary">
@@ -327,6 +352,7 @@ export default function SpotsScreen() {
         </ThemedText>
       ) : null}
 
+      <NearMeButton />
       <PlaceSearch />
 
       {recent ? (

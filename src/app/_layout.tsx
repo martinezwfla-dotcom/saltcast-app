@@ -65,13 +65,13 @@ function AlertsSync() {
 
 /** Keeps the server's list of watched spots in step with the favorites. */
 function ChangeAlertsSync() {
-  const { loaded, changeAlerts, favorites, customSpots } = useSettings();
-  const key = changeAlerts ? favorites.join('|') + '#' + customSpots.map((c) => c.id).join('|') : 'off';
+  const { loaded, changeAlerts, changeAlertMode, favorites, customSpots } = useSettings();
+  const key = changeAlerts ? favorites.join('|') + '#' + customSpots.map((c) => c.id).join('|') + '#' + changeAlertMode : 'off';
 
   useEffect(() => {
     if (!loaded || Platform.OS === 'web') return;
     const spots = favorites.map(getSpot).filter((s, i) => s.id === favorites[i]);
-    const run = () => syncChangeAlerts(changeAlerts, spots).catch(() => false);
+    const run = () => syncChangeAlerts(changeAlerts, spots, changeAlertMode).catch(() => false);
     // Wait a moment so several quick star taps send one update.
     const timer = setTimeout(run, 2000);
     // Opening the app refreshes the list, so the server keeps a current token.
