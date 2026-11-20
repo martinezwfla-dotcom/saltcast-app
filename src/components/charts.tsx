@@ -1,12 +1,12 @@
-import { useState } from 'react';
-import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { useMemo, useState } from 'react';
+import { PanResponder, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import Svg, { Circle, G, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
 
 import { ThemedText } from '@/components/themed-text';
 import { Card } from '@/components/ui';
 import { Colors, Spacing } from '@/constants/theme';
-import type { HourForecast } from '@/lib/forecast';
-import { clock, type Units } from '@/lib/format';
+import type { HourForecast, TideEvent } from '@/lib/forecast';
+import { clock, compass, type Units } from '@/lib/format';
 
 const Dow = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const weekday = (time: number, utcOffset: number) => Dow[new Date(time + utcOffset * 1000).getUTCDay()];
@@ -23,6 +23,10 @@ function LineChart({
   utcOffset,
   now,
   refLine,
+  sel,
+  onSel,
+  minZero = true,
+  marks,
 }: {
   hours: HourForecast[];
   series: Series[];
@@ -30,21 +34,39 @@ function LineChart({
   utcOffset: number;
   now: number;
   refLine?: { value: number; label: string };
+  /** The hour picked by touch, shared by every chart on the screen. */
+  sel: number;
+  onSel: (i: number) => void;
+  minZero?: boolean;
+  marks?: { i: number; label: string; up: boolean }[];
 }) {
   const [width, setWidth] = useState(0);
+  const n = hours.length;
+  // Tap to pick an hour; drag sideways to scrub. Up-and-down drags are left to the page scroll.
+  const pan = useMemo(() => {
+    const iwPx = Math.max(1, width - 30 - 8);
+    const pick = (px: number) => onSel(Math.max(0, Math.min(n - 1, Math.round(((px - 30) / iwPx) * (n - 1)))));
+    return PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 6 && Math.abs(g.dx) > Math.abs(g.dy),
+        onPanResponderGrant: (e) => pick(e.nativeEvent.locationX),
+        onPanResponderMove: (e) => pick(e.nativeEvent.locationX),
+        onPanResponderTerminationRequest: (_, g) => Math.abs(g.dy) > Math.abs(g.dx),
+      });
+  }, [width, n, onSel]);
   const H = 170;
   const L = 30;
   const R = 8;
   const T = 10;
   const B = 22;
-  const n = hours.length;
   const vals = series.flatMap((s) => s.values.filter((v): v is number => v != null));
   if (!n || !vals.length) return null;
   let hi = Math.max(...vals, refLine && Math.max(...vals) >= refLine.value * 0.7 ? refLine.value : 0);
-  const lo = 0;
+  let lo = minZero ? 0 : Math.min(...vals);
   if (hi - lo < 1) hi = lo + 1;
   const step = niceStep((hi - lo) / 4);
   hi = Math.ceil(hi / step) * step;
+  lo = Math.floor(lo / step) * step;
   const iw = Math.max(1, width - L - R);
   const ih = H - T - B;
   const x = (i: number) => L + (n === 1 ? 0 : (i / (n - 1)) * iw);
@@ -64,7 +86,15 @@ function LineChart({
   });
 
   return (
-    <View onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)} style={{ height: H }}>
+    <View
+      onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)}
+      style={{ height: H }}
+      accessible
+      accessibilityRole="adjustable"
+      accessibilityHint="Swipe up or down to step through the hours"
+      accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+      onAccessibilityAction={(e) => onSel(Math.max(0, Math.min(n - 1, sel + (e.nativeEvent.actionName === 'increment' ? 1 : -1))))}
+      {...pan.panHandlers}>
       {width > 0 ? (
         <Svg width={width} height={H} accessibilityLabel={`72-hour chart in ${unit}`}>
           {bands.map(([a, b]) => (
@@ -120,6 +150,23 @@ function LineChart({
               </G>
             );
           })}
+          {(marks ?? []).map((m) => {
+            const v = series[0]?.values[m.i];
+            if (v == null) return null;
+            return (
+              <G key={'m' + m.i}>
+                <Circle cx={x(m.i)} cy={y(v)} r={3} fill={series[0].color} />
+                <SvgText x={Math.min(width - R - 1, Math.max(L + 1, x(m.i)))} y={m.up ? y(v) - 7 : y(v) + 14} fontSize={10} fontWeight="600" fill={C.text} textAnchor={x(m.i) > width - R - 24 ? 'end' : x(m.i) < L + 24 ? 'start' : 'middle'}>
+                  {m.label}
+                </SvgText>
+              </G>
+            );
+          })}
+          <Line x1={x(sel)} x2={x(sel)} y1={T} y2={T + ih} stroke={C.text} strokeWidth={1.2} />
+          {series.map((s) => {
+            const v = s.values[sel];
+            return v == null ? null : <Circle key={'s' + s.label} cx={x(sel)} cy={y(v)} r={5} fill={s.color} stroke={C.background} strokeWidth={2} />;
+          })}
         </Svg>
       ) : null}
     </View>
@@ -147,42 +194,85 @@ function Key({ items }: { items: { color: string; label: string }[] }) {
   );
 }
 
-/** Wind and seas for the next 72 hours, as on the website. */
+/** Smooth hourly tide curve from NOAA high/low times (half-cosine between each turn). */
+function tideCurve(hours: HourForecast[], tides: TideEvent[]): (number | null)[] {
+  return hours.map((h) => {
+    const k = tides.findIndex((t) => t.time > h.time);
+    if (k <= 0) return null;
+    const a = tides[k - 1];
+    const b = tides[k];
+    const f = (h.time - a.time) / (b.time - a.time);
+    return a.height + (b.height - a.height) * (1 - Math.cos(Math.PI * f)) / 2;
+  });
+}
+
+/** Wind, seas and tide for the next 72 hours, as on the website. Touch any chart to read that hour on all three. */
 export function ForecastCharts({
   hours,
   units,
   utcOffset,
   now,
   inshore,
+  tides = [],
 }: {
   hours: HourForecast[];
   units: Units;
   utcOffset: number;
   now: number;
   inshore?: boolean;
+  tides?: TideEvent[];
 }) {
+  const [sel, setSel] = useState(0);
   const metric = units === 'metric';
   const w = (v: number | null) => (v == null ? null : metric ? v * 1.852 : v);
   const h = (v: number | null) => (v == null ? null : metric ? v / 3.28084 : v);
   const windUnit = metric ? 'km/h' : 'knots';
   const seaUnit = metric ? 'meters' : 'feet';
+  const wu = metric ? 'km/h' : 'kt';
+  const hu = metric ? 'm' : 'ft';
   const gustColor = '#8FB7C0';
+  const tideColor = '#4FB3BF';
+  const r0 = (v: number | null) => (v == null ? '—' : String(Math.round(v)));
+  const r1 = (v: number | null) => (v == null ? '—' : (Math.round(v * 10) / 10).toFixed(1));
+  const tide = useMemo(() => tideCurve(hours, tides), [hours, tides]);
+  const tideMarks = useMemo(
+    () =>
+      tides
+        .map((t) => {
+          const i = hours.findIndex((x) => Math.abs(x.time - t.time) <= 30 * 60 * 1000);
+          return i < 0 ? null : { i, label: `${t.type === 'high' ? 'H' : 'L'} ${clock(t.time, utcOffset).replace(/m$/, '')}`, up: t.type === 'high' };
+        })
+        .filter((m): m is { i: number; label: string; up: boolean } => m != null),
+    [hours, tides, utcOffset],
+  );
+  const hasTide = tide.some((v) => v != null);
+  const x = hours[Math.min(sel, hours.length - 1)];
+  if (!x) return null;
+  const when = sel === 0 ? 'Now' : `${weekday(x.time, utcOffset)} ${clock(x.time, utcOffset)}`;
+  const tv = tide[sel];
+  const tPrev = tide[Math.max(0, sel - 1)];
+  const tNext = tide[Math.min(tide.length - 1, sel + 1)];
+  const nextTurn = tides.find((t) => t.time > x.time);
+  const trend = tv == null || tPrev == null || tNext == null ? '' : Math.abs(tNext - tPrev) < 0.03 ? 'slack' : tNext > tPrev ? 'rising' : 'falling';
+  const common = { hours, utcOffset, now, sel, onSel: setSel };
   return (
     <>
+      <ThemedText type="small" themeColor="textSecondary">
+        Touch or drag across any chart to see that hour. All three charts move together.
+      </ThemedText>
       <Card style={{ gap: Spacing.two }}>
         <ThemedText type="smallBold">Wind, next 72 hours ({windUnit})</ThemedText>
         <Key items={[{ color: C.accent, label: 'Sustained' }, { color: gustColor, label: 'Gusts' }]} />
         <LineChart
-          hours={hours}
+          {...common}
           unit={windUnit}
-          utcOffset={utcOffset}
-          now={now}
           refLine={{ value: metric ? 37 : 20, label: metric ? '37 km/h small craft' : '20 kt small craft' }}
           series={[
-            { label: 'gusts', color: gustColor, values: hours.map((x) => w(x.gusts)) },
-            { label: 'wind', color: C.accent, fill: true, values: hours.map((x) => w(x.wind)) },
+            { label: 'gusts', color: gustColor, values: hours.map((v) => w(v.gusts)) },
+            { label: 'wind', color: C.accent, fill: true, values: hours.map((v) => w(v.wind)) },
           ]}
         />
+        <Readout when={when} text={x.wind == null ? 'No wind data' : `${r0(w(x.wind))} ${wu} from ${compass(x.windDir)} · gusts ${r0(w(x.gusts))} ${wu}`} />
       </Card>
       <Card style={{ gap: Spacing.two }}>
         <ThemedText type="smallBold">
@@ -199,17 +289,60 @@ export function ForecastCharts({
           }
         />
         <LineChart
-          hours={hours}
+          {...common}
           unit={seaUnit}
-          utcOffset={utcOffset}
-          now={now}
           series={[
-            ...(inshore ? [] : [{ label: 'swell', color: C.maybe, values: hours.map((x) => h(x.swellHeight)) }]),
-            { label: 'seas', color: C.go, fill: true, values: hours.map((x) => h(x.waveHeight)) },
+            ...(inshore ? [] : [{ label: 'swell', color: C.maybe, values: hours.map((v) => h(v.swellHeight)) }]),
+            { label: 'seas', color: C.go, fill: true, values: hours.map((v) => h(v.waveHeight)) },
           ]}
         />
+        <Readout
+          when={when}
+          text={
+            x.waveHeight == null
+              ? 'No sea data'
+              : inshore
+                ? `Chop ${r1(h(x.waveHeight))} ${hu}`
+                : `Seas ${r1(h(x.waveHeight))} ${hu}${x.wavePeriod != null ? ` at ${r0(x.wavePeriod)} s` : ''}` +
+                  (x.swellHeight != null
+                    ? ` · swell ${r1(h(x.swellHeight))} ${hu}${x.swellPeriod != null ? ` at ${r0(x.swellPeriod)} s` : ''}${x.swellDir != null ? ` from ${compass(x.swellDir)}` : ''}`
+                    : '')
+          }
+        />
       </Card>
+      {hasTide ? (
+        <Card style={{ gap: Spacing.two }}>
+          <ThemedText type="smallBold">Tide, next 72 hours ({seaUnit} above low water)</ThemedText>
+          <LineChart
+            {...common}
+            unit={seaUnit}
+            minZero={false}
+            marks={tideMarks}
+            series={[{ label: 'tide', color: tideColor, values: tide.map((v) => h(v)) }]}
+          />
+          <Readout
+            when={when}
+            text={
+              tv == null
+                ? 'No tide data for this hour'
+                : `${r1(h(tv))} ${hu}${trend ? ` · ${trend}` : ''}${nextTurn ? ` · next ${nextTurn.type} ${weekday(nextTurn.time, utcOffset) === weekday(x.time, utcOffset) ? '' : weekday(nextTurn.time, utcOffset) + ' '}${clock(nextTurn.time, utcOffset)}` : ''}`
+            }
+          />
+        </Card>
+      ) : null}
     </>
+  );
+}
+
+function Readout({ when, text }: { when: string; text: string }) {
+  return (
+    <ThemedText type="small">
+      <ThemedText type="smallBold" style={{ color: C.accent }}>
+        {when}
+      </ThemedText>
+      {'  '}
+      {text}
+    </ThemedText>
   );
 }
 

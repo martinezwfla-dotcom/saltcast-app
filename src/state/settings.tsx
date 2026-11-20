@@ -107,7 +107,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     () => ({
       ...settings,
       loaded,
-      setActivity: (activityId) => setSettings((s) => ({ ...s, activityId })),
+      // Surfing always reads the beach (Nearshore). Kayak & SUP stay close in: Offshore switches to Nearshore, Inshore is kept.
+      setActivity: (activityId) =>
+        setSettings((s) => ({
+          ...s,
+          activityId,
+          water: activityId === 'surfing' || (activityId === 'paddling' && s.water === 'off') ? 'near' : s.water,
+        })),
       setSpot: (spotId) => setSettings((s) => prune({ ...s, spotId })),
       toggleFavorite: (id) =>
         setSettings((s) =>

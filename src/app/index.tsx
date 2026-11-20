@@ -144,6 +144,7 @@ export default function TodayScreen() {
             utcOffset={forecast.utcOffset}
             now={now}
             inshore={water === 'inshore'}
+            tides={forecast.tides}
           />
 
           <ThemedText type="smallBold">
