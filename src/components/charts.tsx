@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
-import { PanResponder, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { PanResponder, Pressable, ScrollView, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import Svg, { Circle, G, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
 
 import { ThemedText } from '@/components/themed-text';
-import { Card } from '@/components/ui';
+import { Card, Icon } from '@/components/ui';
 import { Colors, Spacing } from '@/constants/theme';
 import type { HourForecast, TideEvent } from '@/lib/forecast';
 import { clock, compass, type Units } from '@/lib/format';
+import { moonInfo } from '@/lib/moon';
 
 const Dow = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const weekday = (time: number, utcOffset: number) => Dow[new Date(time + utcOffset * 1000).getUTCDay()];
@@ -222,7 +223,21 @@ export function ForecastCharts({
   inshore?: boolean;
   tides?: TideEvent[];
 }) {
-  const [sel, setSel] = useState(0);
+  const [sel, setSelRaw] = useState(0);
+  // A tapped day in the moon calendar; moving the chart marker hands the moon back to the charts.
+  const [moonDay, setMoonDay] = useState<number | null>(null);
+  const setSel = useMemo(
+    () => (i: number) => {
+      setSelRaw(i);
+      setMoonDay(null);
+    },
+    [],
+  );
+  const moonDays = useMemo(() => {
+    const t0 = new Date(now);
+    t0.setHours(12, 0, 0, 0);
+    return Array.from({ length: 14 }, (_, d) => t0.getTime() + d * 864e5);
+  }, [now]);
   const metric = units === 'metric';
   const w = (v: number | null) => (v == null ? null : metric ? v * 1.852 : v);
   const h = (v: number | null) => (v == null ? null : metric ? v / 3.28084 : v);
@@ -330,7 +345,81 @@ export function ForecastCharts({
           />
         </Card>
       ) : null}
+      <MoonCard
+        time={moonDay ?? x.time}
+        label={moonDay != null ? (moonDay === moonDays[0] ? 'Today' : new Date(moonDay).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })) : when}
+        isDay={moonDay != null}
+        days={moonDays}
+        picked={moonDay}
+        onPick={setMoonDay}
+      />
     </>
+  );
+}
+
+function MoonCard({
+  time,
+  label,
+  isDay,
+  days,
+  picked,
+  onPick,
+}: {
+  time: number;
+  label: string;
+  isDay: boolean;
+  days: number[];
+  picked: number | null;
+  onPick: (ms: number) => void;
+}) {
+  const m = moonInfo(time);
+  return (
+    <Card style={{ gap: Spacing.two }}>
+      <ThemedText type="smallBold">Moon</ThemedText>
+      <View style={styles.moonNow}>
+        <Icon name={m.symbol} size={44} color="#F4E9C8" />
+        <View style={{ flex: 1 }}>
+          <ThemedText type="small">
+            <ThemedText type="smallBold" style={{ color: C.accent }}>
+              {label}
+            </ThemedText>
+            {'  '}
+            {m.pct}% lit · {m.name}
+          </ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            {isDay && m.soon ? 'Expect bigger tide swings around this day' : m.next}
+          </ThemedText>
+        </View>
+      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+        {days.map((ms, i) => {
+          const d = moonInfo(ms);
+          const dt = new Date(ms);
+          const on = picked === ms;
+          return (
+            <Pressable
+              key={ms}
+              onPress={() => onPick(ms)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: on }}
+              accessibilityLabel={`${dt.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}: ${d.name}, ${d.pct}% lit`}
+              style={[styles.moonDay, d.soon && { borderColor: C.maybe }, on && { borderColor: C.accent, borderWidth: 2 }]}>
+              <ThemedText type="smallBold">{i === 0 ? 'Today' : dt.toLocaleDateString('en-US', { weekday: 'short' })}</ThemedText>
+              <Icon name={d.symbol} size={22} color="#F4E9C8" />
+              <ThemedText type="small" themeColor="textSecondary">
+                {dt.getDate()}
+              </ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                {d.pct}%
+              </ThemedText>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+      <ThemedText type="small" themeColor="textSecondary">
+        Tides swing the most around full and new moon. Tap a day, or move the chart marker.
+      </ThemedText>
+    </Card>
   );
 }
 
@@ -350,4 +439,16 @@ const styles = StyleSheet.create({
   key: { flexDirection: 'row', gap: Spacing.three },
   keyItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   swatch: { width: 14, height: 3, borderRadius: 2 },
+  moonNow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
+  moonDay: {
+    alignItems: 'center',
+    gap: 3,
+    minWidth: 52,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: C.border,
+    backgroundColor: C.backgroundElement,
+  },
 });
