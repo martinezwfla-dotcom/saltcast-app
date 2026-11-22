@@ -44,7 +44,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Saltcast uses your location to show the forecast for the spot nearest you. It stays on your phone."
+          "locationWhenInUsePermission": "Saltcast uses your location only to show the forecast nearest you. It is not saved or used to track you."
         }
       ],
       [
