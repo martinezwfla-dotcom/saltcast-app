@@ -44,15 +44,22 @@ export default function TodayScreen() {
           <Image source={require('@/assets/images/logo-header.png')} style={styles.logo} contentFit="contain" />
         </Pressable>
         <View style={styles.spotGroup}>
-          <Pressable onPress={() => router.navigate('/spots')} style={styles.spotButton} accessibilityRole="button">
-            <Icon name="mappin.and.ellipse" size={16} />
+          <Pressable
+            onPress={() => router.navigate('/spots')}
+            style={({ pressed }) => [styles.spotButton, pressed && { opacity: 0.7 }]}
+            accessibilityRole="button"
+            accessibilityLabel={`Location: ${spot.name}. Tap to change location`}>
+            <Icon name="mappin.and.ellipse" size={22} color={Colors.dark.accent} />
             <View style={{ flexShrink: 1 }}>
-              <ThemedText type="smallBold" numberOfLines={1}>
+              <ThemedText style={styles.spotName} numberOfLines={1}>
                 {spot.name}
               </ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                {spot.region}
-              </ThemedText>
+              <View style={styles.changeRow}>
+                <ThemedText type="smallBold" style={{ color: Colors.dark.accent }}>
+                  Change location
+                </ThemedText>
+                <Icon name="chevron.down" size={12} color={Colors.dark.accent} />
+              </View>
             </View>
           </Pressable>
           <Pressable
@@ -88,11 +95,16 @@ export default function TodayScreen() {
       ) : hour && rating ? (
         <>
           <Card style={styles.verdictCard}>
+            <View style={styles.verdictRow}>
+              <ThemedText style={styles.townName} numberOfLines={2}>
+                {spot.name}
+              </ThemedText>
+              <VerdictPill verdict={rating.verdict} large />
+            </View>
             <ThemedText type="small" themeColor="textSecondary">
-              {activity.name} right now at {spot.name}
+              {activity.name} right now · {spot.region}
               {water !== 'near' ? ` · ${WaterLabels[water].label}` : ''}
             </ThemedText>
-            <VerdictPill verdict={rating.verdict} large />
             <ThemedText>{rating.reasons.length ? rating.reasons.join(' · ') : 'Conditions look good.'}</ThemedText>
             {offline ? (
               <ThemedText type="small" style={{ color: Colors.dark.maybe }}>
@@ -172,7 +184,7 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     paddingTop: Spacing.three,
   },
-  logo: { width: 198, height: 66 },
+  logo: { width: 156, height: 52 },
   spotGroup: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -183,12 +195,19 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
     backgroundColor: Colors.dark.backgroundElement,
+    borderWidth: 1.5,
+    borderColor: Colors.dark.accent,
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingVertical: 8,
+    minHeight: 56,
+    borderRadius: 14,
   },
+  spotName: { fontSize: 18, lineHeight: 22, fontWeight: 700 },
+  changeRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  verdictRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two, alignSelf: 'stretch' },
+  townName: { flexShrink: 1, fontSize: 30, lineHeight: 36, fontWeight: 700 },
   center: {
     alignItems: 'center',
     paddingVertical: Spacing.five,
