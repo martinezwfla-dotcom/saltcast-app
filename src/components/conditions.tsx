@@ -1,4 +1,5 @@
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useRef, type ComponentRef } from 'react';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Card, Icon, VerdictColor, VerdictPill } from '@/components/ui';
@@ -144,19 +145,49 @@ export function HourlyStrip({
   spot,
   units,
   utcOffset,
+  now,
+  selected,
+  onSelect,
 }: {
   hours: HourForecast[];
   activity: Activity;
   spot: Spot;
   units: Units;
   utcOffset: number;
+  now: number;
+  selected?: number;
+  onSelect?: (i: number) => void;
 }) {
+  const scroller = useRef<ComponentRef<typeof ScrollView>>(null);
+  const width = useRef(0);
+  // Keep the picked hour in view when it is moved from the charts.
+  useEffect(() => {
+    if (selected == null) return;
+    const x = Math.max(0, selected * (HourCell + Spacing.two) - (width.current - HourCell) / 2);
+    scroller.current?.scrollTo({ x, animated: true });
+  }, [selected]);
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hourly}>
-      {hours.map((h) => {
+    <ScrollView
+      ref={scroller}
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.hourly}
+      onLayout={(e) => (width.current = e.nativeEvent.layout.width)}>
+      {hours.map((h, i) => {
         const r = rateHour(h, activity, spot);
+        const day = i === 0 ? 'Now' : clock(h.time, utcOffset) === '12am' ? dayLabel(h.time, utcOffset, now) : ' ';
+        const on = selected === i;
         return (
-          <View key={h.time} style={styles.hour}>
+          <Pressable
+            key={h.time}
+            onPress={() => onSelect?.(i)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: on }}
+            accessibilityLabel={`${dayLabel(h.time, utcOffset, now)} ${clock(h.time, utcOffset)}: ${VerdictLabel[r.verdict]}, wind ${windSpeed(h.wind, units)}, seas ${height(h.waveHeight, units)}`}
+            style={[styles.hour, on && styles.hourOn]}>
+            <ThemedText type="small" numberOfLines={1} style={{ color: C.accent, fontWeight: 700 }}>
+              {day}
+            </ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
               {clock(h.time, utcOffset)}
             </ThemedText>
@@ -181,7 +212,7 @@ export function HourlyStrip({
                 {h.precipChance != null ? `${h.precipChance}%` : '--'}
               </ThemedText>
             </View>
-          </View>
+          </Pressable>
         );
       })}
     </ScrollView>
@@ -263,6 +294,8 @@ export function DailyForecast({
   );
 }
 
+const HourCell = 80;
+
 const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   stat: { flexGrow: 1, flexBasis: '45%', gap: Spacing.one },
@@ -278,8 +311,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 12,
     backgroundColor: C.backgroundElement,
-    minWidth: 76,
+    width: HourCell,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
   },
+  hourOn: { borderColor: C.accent, backgroundColor: C.backgroundSelected },
   dot: { width: 12, height: 12, borderRadius: 6 },
   rain: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   daily: { paddingVertical: Spacing.one, gap: 0 },

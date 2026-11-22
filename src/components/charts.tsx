@@ -215,6 +215,8 @@ export function ForecastCharts({
   now,
   inshore,
   tides = [],
+  sel: selProp,
+  onSel,
 }: {
   hours: HourForecast[];
   units: Units;
@@ -222,16 +224,21 @@ export function ForecastCharts({
   now: number;
   inshore?: boolean;
   tides?: TideEvent[];
+  /** Optional: the selected hour, shared with the 72-hour strip. */
+  sel?: number;
+  onSel?: (i: number) => void;
 }) {
-  const [sel, setSelRaw] = useState(0);
+  const [selInner, setSelRaw] = useState(0);
+  const sel = selProp ?? selInner;
   // A tapped day in the moon calendar; moving the chart marker hands the moon back to the charts.
   const [moonDay, setMoonDay] = useState<number | null>(null);
   const setSel = useMemo(
     () => (i: number) => {
       setSelRaw(i);
+      onSel?.(i);
       setMoonDay(null);
     },
-    [],
+    [onSel],
   );
   const moonDays = useMemo(() => {
     const t0 = new Date(now);
@@ -273,7 +280,7 @@ export function ForecastCharts({
   return (
     <>
       <ThemedText type="small" themeColor="textSecondary">
-        Touch or drag across any chart to see that hour. All three charts move together.
+        Tap an hour above, or touch or drag across any chart. The hours, charts and moon all move together.
       </ThemedText>
       <Card style={{ gap: Spacing.two }}>
         <ThemedText type="smallBold">Wind, next 72 hours ({windUnit})</ThemedText>

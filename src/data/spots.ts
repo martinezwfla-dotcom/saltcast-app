@@ -15,6 +15,8 @@ export type Spot = {
   tideStation: { id: string; name: string };
   /** True for a place the user found with search. */
   custom?: boolean;
+  /** NWS tropical warnings and watches in force here, attached by useTropical. */
+  tropical?: { event: string; level: 'warn' | 'watch'; until: number }[];
 };
 
 const Stations = {

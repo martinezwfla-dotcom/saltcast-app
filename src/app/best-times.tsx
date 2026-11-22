@@ -10,6 +10,7 @@ import { getSpot } from '@/data/spots';
 import { useForecast } from '@/hooks/use-forecast';
 import { useNow } from '@/hooks/use-now';
 import { findBestWindows } from '@/lib/best-times';
+import { useTropical } from '@/lib/tropical';
 import { waterFor } from '@/lib/forecast';
 import { clock, compass, height, timeRange, windSpeed } from '@/lib/format';
 import { useSettings } from '@/state/settings';
@@ -18,10 +19,10 @@ export default function BestTimesScreen() {
   const { activityId, spotId, units, setActivity, water: chosenWater, setWater } = useSettings();
   const water = waterFor(chosenWater, activityId);
   const activity = getActivity(activityId);
-  const spot = getSpot(spotId);
+  const now = useNow();
+  const { spot } = useTropical(getSpot(spotId), now);
   const { forecast, loading, error, refresh } = useForecast(spotId, water);
   const [open, setOpen] = useState<number>();
-  const now = useNow();
 
   const windows = forecast ? findBestWindows(forecast, activity, spot, now) : [];
 

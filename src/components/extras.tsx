@@ -12,6 +12,7 @@ import { loadStations, pickStations, type Station } from '@/lib/buoys';
 import { WaterLabels, type Forecast, type Water } from '@/lib/forecast';
 import { clock, compass, dayLabel, height, temperature, windSpeed, type Units } from '@/lib/format';
 import { tideFishing } from '@/lib/tide-fishing';
+import type { TropicalAlert } from '@/lib/tropical';
 
 const C = Colors.dark;
 
@@ -277,4 +278,101 @@ const styles = StyleSheet.create({
   tideDay: { gap: 6, paddingTop: Spacing.one },
   stretch: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, padding: 10, borderRadius: 12, backgroundColor: C.backgroundSelected },
   stretchBest: { borderWidth: 1, borderColor: C.go },
+});
+
+/**
+ * Safety heads-up for the next 12 hours, the same checks as the website's alert box:
+ * tropical warnings and watches, lightning, gale force, small craft and caution levels,
+ * rip currents for surfing, and the hurricane season reminder.
+ */
+export function SafetyAlerts({
+  hours,
+  activityId,
+  tropical,
+  utcOffset,
+  onTracker,
+}: {
+  hours: Forecast['hours'];
+  activityId: ActivityId;
+  tropical?: TropicalAlert;
+  utcOffset: number;
+  onTracker: () => void;
+}) {
+  const next12 = hours.slice(0, 12);
+  const alerts: { level: 'nogo' | 'warn'; title: string; text: string }[] = [];
+  if (tropical) {
+    alerts.push({
+      level: tropical.level === 'warn' ? 'nogo' : 'warn',
+      title: tropical.event,
+      text:
+        tropical.level === 'warn'
+          ? 'In effect here. Stay off the water and follow local emergency orders.'
+          : 'In effect here. Tropical storm or hurricane conditions are possible within 48 hours.',
+    });
+  }
+  const storm = next12.find((h) => h.weatherCode != null && h.weatherCode >= 95);
+  if (storm) {
+    alerts.push({
+      level: 'nogo',
+      title: 'Lightning',
+      text: `Thunderstorms in the forecast within 12 hours, starting around ${clock(storm.time, utcOffset)}. Get off the water before storms arrive.`,
+    });
+  }
+  const maxW = Math.max(0, ...next12.map((h) => h.wind ?? 0));
+  const maxH = Math.max(0, ...next12.map((h) => h.waveHeight ?? 0));
+  const r1 = (v: number) => (Math.round(v * 10) / 10).toFixed(1);
+  if (maxW >= 34) {
+    alerts.push({ level: 'nogo', title: 'Gale force', text: `Winds reach ${Math.round(maxW)} kt in the next 12 hours.` });
+  } else if (maxW >= 20 || maxH >= 7) {
+    alerts.push({
+      level: 'warn',
+      title: 'Small craft',
+      text: `Advisory-level conditions in the next 12 hours: wind up to ${Math.round(maxW)} kt, seas up to ${r1(maxH)} ft. Check for an official NWS advisory.`,
+    });
+  } else if (maxW >= 15 || maxH >= 4) {
+    alerts.push({
+      level: 'warn',
+      title: 'Caution',
+      text: `Wind up to ${Math.round(maxW)} kt and seas up to ${r1(maxH)} ft in the next 12 hours. Small boats use caution.`,
+    });
+  }
+  const surf = Math.max(next12[0]?.waveHeight ?? 0, next12[0]?.swellHeight ?? 0);
+  if (activityId === 'surfing' && surf >= 3) {
+    alerts.push({ level: 'warn', title: 'Rip currents', text: 'Surf of 3 ft or more raises rip-current risk. Swim near a lifeguard.' });
+  }
+  const month = new Date().getMonth() + 1;
+  const season = !tropical && month >= 6 && month <= 11;
+  if (!alerts.length && !season) return null;
+  return (
+    <Card style={{ gap: Spacing.two }}>
+      {alerts.map((a) => (
+        <View key={a.title} style={[safety.row, { borderLeftColor: a.level === 'nogo' ? Colors.dark.noGo : Colors.dark.maybe }]}>
+          <ThemedText type="smallBold" style={{ color: a.level === 'nogo' ? Colors.dark.noGo : Colors.dark.maybe }}>
+            {a.title}
+          </ThemedText>
+          <ThemedText type="small">{a.text}</ThemedText>
+        </View>
+      ))}
+      {season ? (
+        <Pressable onPress={onTracker} accessibilityRole="button" style={[safety.row, { borderLeftColor: Colors.dark.border }]}>
+          <ThemedText type="smallBold" themeColor="textSecondary">
+            Hurricane season
+          </ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            June through November. Check the hurricane tracker before any trip offshore.
+          </ThemedText>
+        </Pressable>
+      ) : tropical ? (
+        <Pressable onPress={onTracker} accessibilityRole="link">
+          <ThemedText type="smallBold" themeColor="accent">
+            Open the hurricane tracker
+          </ThemedText>
+        </Pressable>
+      ) : null}
+    </Card>
+  );
+}
+
+const safety = StyleSheet.create({
+  row: { borderLeftWidth: 3, paddingLeft: 10, gap: 2 },
 });

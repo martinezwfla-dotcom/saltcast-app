@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,6 +16,17 @@ export default function RadarScreen() {
   const [mode, setMode] = useState<'radar' | 'tropics'>('radar');
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  // The Today screen's safety card opens this tab straight to the hurricane tracker.
+  const { show, at } = useLocalSearchParams<{ show?: string; at?: string }>();
+  const [opened, setOpened] = useState<string>();
+  if (show === 'tropics' && at !== opened) {
+    setOpened(at);
+    if (mode !== 'tropics') {
+      setMode('tropics');
+      setLoading(true);
+      setFailed(false);
+    }
+  }
   const pick = (m: 'radar' | 'tropics') => {
     if (m === mode) return;
     setMode(m);

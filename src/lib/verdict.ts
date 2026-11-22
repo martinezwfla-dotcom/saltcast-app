@@ -1,6 +1,7 @@
 import type { Activity } from '@/data/activities';
 import type { Spot } from '@/data/spots';
 import type { HourForecast } from '@/lib/forecast';
+import { tropicalAt } from '@/lib/tropical';
 
 export type Verdict = 'go' | 'maybe' | 'nogo';
 
@@ -110,6 +111,16 @@ export function rateHour(hour: HourForecast, activity: Activity, spot: Spot): Ho
   } else if (hour.precipChance != null && hour.precipChance >= 60) {
     worst = Math.min(worst, 0.4);
     reasons.push(`${hour.precipChance}% chance of rain`);
+  }
+
+  // NWS tropical warnings at this spot force No Go; watches cap the hour at Not ideal (same as the website).
+  const trop = tropicalAt(spot, hour.time);
+  if (trop?.level === 'warn') {
+    worst = -1;
+    reasons.unshift(`${trop.event} in effect`);
+  } else if (trop) {
+    worst = Math.min(worst, 0.4);
+    reasons.unshift(`${trop.event} in effect`);
   }
 
   const verdict: Verdict = worst >= 0.75 ? 'go' : worst >= 0 ? 'maybe' : 'nogo';

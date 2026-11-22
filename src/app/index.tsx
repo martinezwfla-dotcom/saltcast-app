@@ -1,4 +1,5 @@
 import { Image } from 'expo-image';
+import { useState } from 'react';
 import { router } from 'expo-router';
 import { ActivityIndicator, Pressable, RefreshControl, Share, StyleSheet, View } from 'react-native';
 
@@ -6,7 +7,7 @@ import { ForecastCharts } from '@/components/charts';
 import { Welcome } from '@/components/welcome';
 
 import { ConditionsGrid, DailyForecast, HourlyStrip, TideCard } from '@/components/conditions';
-import { BuoyCard, LocalCard, WaterPicker } from '@/components/extras';
+import { BuoyCard, LocalCard, SafetyAlerts, WaterPicker } from '@/components/extras';
 import { ThemedText } from '@/components/themed-text';
 import { ActivityPicker, Card, Disclaimer, Icon, openWebsite, Screen, VerdictPill, WebsiteButton } from '@/components/ui';
 import { Colors, Spacing } from '@/constants/theme';
@@ -19,6 +20,7 @@ import { summarizeDays } from '@/lib/daily';
 import { currentHourIndex, waterFor, WaterLabels } from '@/lib/forecast';
 import { clock, compass, height, timeRange, windSpeed } from '@/lib/format';
 import { nearestArea } from '@/data/local';
+import { useTropical } from '@/lib/tropical';
 import { rateHour, VerdictLabel } from '@/lib/verdict';
 import { useSettings } from '@/state/settings';
 
@@ -27,9 +29,12 @@ export default function TodayScreen() {
   const water = waterFor(chosenWater, activityId);
   const favorite = favorites.includes(spotId);
   const activity = getActivity(activityId);
-  const spot = getSpot(spotId);
+  const baseSpot = getSpot(spotId);
+  // The hour picked on the 72-hour strip or the charts; both stay in step.
+  const [sel, setSel] = useState(0);
   const { forecast, loading, error, refresh, offline } = useForecast(spotId, water);
   const now = useNow();
+  const { spot, now: tropical } = useTropical(baseSpot, now);
 
   const index = forecast ? currentHourIndex(forecast, now) : 0;
   const hour = forecast?.hours[index];
@@ -142,13 +147,29 @@ export default function TodayScreen() {
             </Pressable>
           </Card>
 
+          <SafetyAlerts
+            hours={forecast.hours.slice(index)}
+            activityId={activityId}
+            tropical={tropical}
+            utcOffset={forecast.utcOffset}
+            onTracker={() => router.navigate({ pathname: '/radar', params: { show: 'tropics', at: String(Date.now()) } })}
+          />
           <LocalCard spot={spot} activityId={activityId} />
           <ConditionsGrid hour={hour} spot={spot} units={units} />
           <BuoyCard spot={spot} water={water} units={units} />
           <TideCard forecast={forecast} units={units} stationName={spot.tideStation.name} now={now} />
 
-          <ThemedText type="smallBold">Next 12 hours</ThemedText>
-          <HourlyStrip hours={forecast.hours.slice(index, index + 12)} activity={activity} spot={spot} units={units} utcOffset={forecast.utcOffset} />
+          <ThemedText type="smallBold">Next 72 hours</ThemedText>
+          <HourlyStrip
+            hours={forecast.hours.slice(index, index + 72)}
+            activity={activity}
+            spot={spot}
+            units={units}
+            utcOffset={forecast.utcOffset}
+            now={now}
+            selected={sel}
+            onSelect={setSel}
+          />
 
           <ForecastCharts
             hours={forecast.hours.slice(index, index + 72)}
@@ -157,6 +178,8 @@ export default function TodayScreen() {
             now={now}
             inshore={water === 'inshore'}
             tides={forecast.tides}
+            sel={sel}
+            onSel={setSel}
           />
 
           <ThemedText type="smallBold">
