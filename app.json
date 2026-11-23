@@ -52,6 +52,14 @@
         {
           "color": "#0E2A33"
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Saltcast lets you pick a photo to send in for Catch of the Week. Only the photo you choose is sent.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
       ]
     ],
     "experiments": {

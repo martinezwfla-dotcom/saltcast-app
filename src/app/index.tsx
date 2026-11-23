@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { router } from 'expo-router';
 import { ActivityIndicator, Pressable, RefreshControl, Share, StyleSheet, View } from 'react-native';
 
+import { CatchOfTheWeek } from '@/components/catch';
 import { ForecastCharts } from '@/components/charts';
 import { Welcome } from '@/components/welcome';
 
@@ -192,6 +193,8 @@ export default function TodayScreen() {
           </ThemedText>
         </>
       ) : null}
+
+      <CatchOfTheWeek activityId={activityId} />
 
       <WebsiteButton />
       <Disclaimer />
