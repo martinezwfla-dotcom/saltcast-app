@@ -186,7 +186,14 @@ export default function TodayScreen() {
           <ThemedText type="smallBold">
             {days.length}-day forecast for {activity.name.toLowerCase()}
           </ThemedText>
-          <DailyForecast days={days} units={units} utcOffset={forecast.utcOffset} now={now} />
+          <DailyForecast
+            days={days}
+            units={units}
+            utcOffset={forecast.utcOffset}
+            now={now}
+            activity={activityId}
+            water={water}
+          />
 
           <ThemedText type="small" themeColor="textSecondary" style={styles.updated}>
             Updated {clock(forecast.fetchedAt, forecast.utcOffset)}. Data from Open-Meteo and NOAA.

@@ -16,6 +16,11 @@ export type DaySummary = {
   /** Average daylight wind direction, weighted by speed. */
   windDir: number | null;
   waveMax: number | null;
+  gustMax: number | null;
+  /** True when any daylight hour has thunderstorms. */
+  storm: boolean;
+  /** Reasons from the hour that set the day's rating, worst first. Used to explain the rating. */
+  reasons: string[];
   /** The best daylight hour for the activity. */
   best?: { hour: HourForecast; rating: HourVerdict };
   /**
@@ -57,6 +62,12 @@ function dayWeather(hours: HourForecast[]) {
   for (const c of codes) counts.set(c, (counts.get(c) ?? 0) + 1);
   // Most common code; ties go to the wetter or cloudier one.
   return [...counts.entries()].sort((a, b) => b[1] - a[1] || b[0] - a[0])[0][0];
+}
+
+/** Reasons from the lowest-scoring hour with the day's verdict. */
+function worstReasons(rated: { rating: HourVerdict }[], verdict: Verdict) {
+  const same = rated.filter((r) => r.rating.verdict === verdict).sort((a, b) => a.rating.score - b.rating.score);
+  return same[0]?.rating.reasons ?? [];
 }
 
 /** Groups the forecast into the spot's local days, starting with today. */
@@ -127,6 +138,9 @@ export function summarizeDays(forecast: Forecast, activity: Activity, spot: Spot
         windMax: max(pick.map((h) => h.wind)),
         windDir: averageDirection(pick),
         waveMax: max(pick.map((h) => h.waveHeight)),
+        gustMax: max(pick.map((h) => h.gusts)),
+        storm: pick.some((h) => h.weatherCode != null && h.weatherCode >= 95),
+        reasons: worst ? worstReasons(rated, worst.rating.verdict) : [],
         best,
         verdict,
         window,
