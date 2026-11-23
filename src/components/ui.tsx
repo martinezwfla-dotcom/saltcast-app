@@ -1,8 +1,8 @@
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import * as WebBrowser from 'expo-web-browser';
-import { type ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, View, type ViewProps } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { type ReactNode, useRef, useState } from 'react';
+import { Pressable, ScrollView, type ScrollViewInstance, StyleSheet, View, type ViewProps } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { BottomTabInset, Colors, MaxContentWidth, Spacing } from '@/constants/theme';
@@ -23,18 +23,41 @@ export function Screen({
   refreshControl?: React.ComponentProps<typeof ScrollView>['refreshControl'];
 }) {
   const content = <View style={styles.content}>{children}</View>;
+  const ref = useRef<ScrollViewInstance>(null);
+  const [showTop, setShowTop] = useState(false);
+  const insets = useSafeAreaInsets();
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.screen}>
       {scroll ? (
         <ScrollView
+          ref={ref}
           contentContainerStyle={styles.scroll}
           refreshControl={refreshControl}
-          contentInsetAdjustmentBehavior="automatic">
+          contentInsetAdjustmentBehavior="automatic"
+          scrollEventThrottle={100}
+          onScroll={(e) => {
+            // Same as the website: the Top button shows after scrolling about a screen down.
+            const down = e.nativeEvent.contentOffset.y > 700;
+            if (down !== showTop) setShowTop(down);
+          }}>
           {content}
         </ScrollView>
       ) : (
         content
       )}
+      {scroll && showTop ? (
+        <Pressable
+          onPress={() => ref.current?.scrollTo({ y: 0, animated: true })}
+          style={({ pressed }) => [styles.toTop, { bottom: insets.bottom + BottomTabInset + Spacing.three }, pressed && { opacity: 0.7 }]}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Back to top">
+          <Icon name="arrow.up" size={16} color={C.background} />
+          <ThemedText type="smallBold" style={{ color: C.background }}>
+            Top
+          </ThemedText>
+        </Pressable>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -130,6 +153,21 @@ export function Disclaimer() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.background },
+  toTop: {
+    position: 'absolute',
+    right: Spacing.three,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    minHeight: 44,
+    borderRadius: 999,
+    backgroundColor: C.accent,
+    shadowColor: '#000',
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+  },
   scroll: { paddingBottom: BottomTabInset + Spacing.four },
   content: {
     width: '100%',
