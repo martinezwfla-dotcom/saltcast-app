@@ -18,6 +18,7 @@ import { useForecast } from '@/hooks/use-forecast';
 import { useNow } from '@/hooks/use-now';
 import { findBestWindows } from '@/lib/best-times';
 import { summarizeDays } from '@/lib/daily';
+import { nowLine } from '@/lib/why';
 import { currentHourIndex, waterFor, WaterLabels } from '@/lib/forecast';
 import { clock, compass, height, timeRange, windSpeed } from '@/lib/format';
 import { nearestArea } from '@/data/local';
@@ -111,7 +112,7 @@ export default function TodayScreen() {
               {activity.name} right now · {spot.region}
               {water !== 'near' ? ` · ${WaterLabels[water].label}` : ''}
             </ThemedText>
-            <ThemedText>{rating.reasons.length ? rating.reasons.join(' · ') : 'Conditions look good.'}</ThemedText>
+            <ThemedText>{nowLine(hour, rating.reasons)}</ThemedText>
             {offline ? (
               <ThemedText type="small" style={{ color: Colors.dark.maybe }}>
                 No connection. Showing the forecast saved at {clock(forecast.fetchedAt, forecast.utcOffset)}. Pull down to try again.

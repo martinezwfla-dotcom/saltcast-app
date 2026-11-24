@@ -17,6 +17,8 @@ export type DaySummary = {
   windDir: number | null;
   waveMax: number | null;
   gustMax: number | null;
+  /** Daylight sky: 0 sunny to 4 cloudy, and 0 dry, 1 a few showers, 2 showers. */
+  sky: DaySky | null;
   /** True when any daylight hour has thunderstorms. */
   storm: boolean;
   /** Reasons from the hour that set the day's rating, worst first. Used to explain the rating. */
@@ -62,6 +64,30 @@ function dayWeather(hours: HourForecast[]) {
   for (const c of codes) counts.set(c, (counts.get(c) ?? 0) + 1);
   // Most common code; ties go to the wetter or cloudier one.
   return [...counts.entries()].sort((a, b) => b[1] - a[1] || b[0] - a[0])[0][0];
+}
+
+export type DaySky = { level: number | null; rain: 0 | 1 | 2 };
+
+/** Average daylight cloud cover (weather codes when it is missing) and how many hours have showers. */
+function daySky(hours: HourForecast[]): DaySky | null {
+  if (!hours.length) return null;
+  const cover = (h: HourForecast) =>
+    h.cloudCover != null
+      ? h.cloudCover
+      : h.weatherCode == null
+        ? null
+        : h.weatherCode === 0
+          ? 5
+          : h.weatherCode === 1
+            ? 25
+            : h.weatherCode === 2
+              ? 50
+              : 95;
+  const v = hours.map(cover).filter((x): x is number => x != null);
+  const mean = v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+  const wet = hours.filter((h) => h.weatherCode != null && h.weatherCode >= 51 && h.weatherCode <= 82).length;
+  const level = mean == null ? null : mean < 15 ? 0 : mean < 35 ? 1 : mean < 65 ? 2 : mean < 85 ? 3 : 4;
+  return { level, rain: wet >= Math.max(3, hours.length * 0.4) ? 2 : wet > 0 ? 1 : 0 };
 }
 
 /** Reasons from the lowest-scoring hour with the day's verdict. */
@@ -139,6 +165,7 @@ export function summarizeDays(forecast: Forecast, activity: Activity, spot: Spot
         windDir: averageDirection(pick),
         waveMax: max(pick.map((h) => h.waveHeight)),
         gustMax: max(pick.map((h) => h.gusts)),
+        sky: daySky(pick),
         storm: pick.some((h) => h.weatherCode != null && h.weatherCode >= 95),
         reasons: worst ? worstReasons(rated, worst.rating.verdict) : [],
         best,

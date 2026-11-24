@@ -1,7 +1,7 @@
 import type { ActivityId } from '@/data/activities';
 import type { DaySummary } from '@/lib/daily';
 import { compass, dayLabel, height, windSpeed, type Units } from '@/lib/format';
-import type { Water } from '@/lib/forecast';
+import type { HourForecast, Water } from '@/lib/forecast';
 import { verdictRank, VerdictLabel } from '@/lib/verdict';
 
 /** A day's note: an optional bold lead ("Worse than Wed:") and the plain-English reason. */
@@ -25,6 +25,32 @@ function factorOf(reason: string): Factor {
   if (r.startsWith('onshore')) return 'onshore';
   if (r.includes('wind')) return 'wind';
   return 'other';
+}
+
+const SkyWords = ['sunny', 'mostly sunny', 'partly cloudy', 'mostly cloudy', 'cloudy'];
+
+function skyWord(k: DaySummary['sky']) {
+  if (!k) return null;
+  if (k.rain === 2) return 'showers';
+  if (k.rain === 1) return k.level != null && k.level <= 2 ? `${SkyWords[k.level]}, a few showers` : 'cloudy with a few showers';
+  return k.level == null ? null : SkyWords[k.level];
+}
+
+/** The sky line for a day, worded as a change from the day before when it changed a lot. Same as the website. */
+function skyLine(d: DaySummary, p?: DaySummary) {
+  const k = d.sky;
+  const word = skyWord(k);
+  if (!k || !word || d.storm) return '';
+  const q = p?.sky;
+  if (q && skyWord(q) && !p.storm && k.level != null) {
+    if (!k.rain && k.level <= 1 && (q.rain || (q.level != null && q.level - k.level >= 2))) {
+      return k.level === 0 ? 'The sun comes back out.' : `The sun comes back out, ${word}.`;
+    }
+    if (!k.rain && q.level != null && q.level - k.level >= 2) return `Brighter skies, ${word}.`;
+    if (!k.rain && q.level != null && k.level - q.level >= 2) return k.level >= 3 ? 'Clouds move in.' : `More clouds, ${word}.`;
+  }
+  if (q && k.rain && !q.rain && !p.storm) return k.rain === 2 ? 'Showers move in.' : 'A few showers pop up.';
+  return `${word.charAt(0).toUpperCase()}${word.slice(1)}.`;
 }
 
 /** A big wind shift with building wind: the classic sign of a front passing. */
@@ -136,6 +162,9 @@ export function explainDays(
     else if (d.verdict === 'go') why = { text: `Steady: ${calm}.` };
     else why = { text: `Still ${VerdictLabel[d.verdict].toLowerCase()}: ${list(bits)}.` };
 
+    const sky = skyLine(d, prev);
+    if (sky) why.text += ` ${sky}`;
+
     if (isFront(d, prev)) {
       why.text +=
         d.windDir != null && angle(d.windDir, 315) <= 70
@@ -146,4 +175,32 @@ export function explainDays(
     }
     return why;
   });
+}
+
+/** The sky right now, for the line under the rating: Sunny / Mostly sunny / Partly cloudy..., Clear at night. */
+export function skyNow(hour: HourForecast) {
+  const code = hour.weatherCode;
+  if (code != null && code >= 95) return '';
+  if (code != null && code >= 45 && code <= 48) return 'Foggy';
+  if (code != null && code >= 51 && code <= 57) return 'Drizzle';
+  if (code != null && code >= 61 && code <= 67) return 'Rain';
+  if (code != null && code >= 80 && code <= 82) return 'Showers';
+  const cover =
+    hour.cloudCover ?? (code == null ? null : code === 0 ? 5 : code === 1 ? 25 : code === 2 ? 50 : 95);
+  if (cover == null) return '';
+  const level = cover < 15 ? 0 : cover < 35 ? 1 : cover < 65 ? 2 : cover < 85 ? 3 : 4;
+  return (hour.isDay ? DayWords : NightWords)[level];
+}
+
+const DayWords = ['Sunny', 'Mostly sunny', 'Partly cloudy', 'Mostly cloudy', 'Cloudy'];
+const NightWords = ['Clear', 'Mostly clear', 'Partly cloudy', 'Mostly cloudy', 'Cloudy'];
+
+/** The rating's reason line, led by the sky: "Mostly sunny, wind 16 kt · Seas 1.8 ft". */
+export function nowLine(hour: HourForecast, reasons: string[]) {
+  const sky = skyNow(hour);
+  if (!reasons.length) return sky ? `${sky}. Conditions look good.` : 'Conditions look good.';
+  if (!sky) return reasons.join(' · ');
+  const [first, ...rest] = reasons;
+  const lead = /^[A-Z][a-z]/.test(first) ? first.charAt(0).toLowerCase() + first.slice(1) : first;
+  return [`${sky}, ${lead}`, ...rest].join(' · ');
 }

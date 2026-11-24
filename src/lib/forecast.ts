@@ -7,6 +7,8 @@ export type HourForecast = {
   airTemp: number | null;
   precipChance: number | null;
   weatherCode: number | null;
+  /** Cloud cover, percent. Missing in forecasts cached by older versions. */
+  cloudCover?: number | null;
   wind: number | null;
   windDir: number | null;
   gusts: number | null;
@@ -111,6 +113,7 @@ function fetchWeather(p: Point, days: number) {
       'wind_direction_10m',
       'wind_gusts_10m',
       'is_day',
+      'cloud_cover',
     ].join(','),
     wind_speed_unit: 'kn',
     temperature_unit: 'fahrenheit',
@@ -220,6 +223,7 @@ export async function fetchForecast(spot: Spot, water: Water = 'near'): Promise<
       airTemp: w.temperature_2m?.[i] ?? null,
       precipChance: w.precipitation_probability?.[i] ?? null,
       weatherCode: w.weather_code?.[i] ?? null,
+      cloudCover: w.cloud_cover?.[i] ?? null,
       wind: w.wind_speed_10m?.[i] ?? null,
       windDir: w.wind_direction_10m?.[i] ?? null,
       gusts: w.wind_gusts_10m?.[i] ?? null,
