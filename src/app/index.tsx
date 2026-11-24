@@ -10,6 +10,7 @@ import { Welcome } from '@/components/welcome';
 import { ConditionsGrid, DailyForecast, HourlyStrip, TideCard } from '@/components/conditions';
 import { BuoyCard, LocalCard, SafetyAlerts, WaterPicker } from '@/components/extras';
 import { ThemedText } from '@/components/themed-text';
+import { hourKind, SkyIcon } from '@/components/sky-icon';
 import { ActivityPicker, Card, Disclaimer, Icon, openWebsite, Screen, VerdictPill, WebsiteButton } from '@/components/ui';
 import { Colors, Spacing } from '@/constants/theme';
 import { getActivity } from '@/data/activities';
@@ -112,7 +113,10 @@ export default function TodayScreen() {
               {activity.name} right now · {spot.region}
               {water !== 'near' ? ` · ${WaterLabels[water].label}` : ''}
             </ThemedText>
-            <ThemedText>{nowLine(hour, rating.reasons)}</ThemedText>
+            <View style={styles.nowLine}>
+              <SkyIcon kind={hourKind(hour)} size={26} />
+              <ThemedText style={{ flexShrink: 1 }}>{nowLine(hour, rating.reasons)}</ThemedText>
+            </View>
             {offline ? (
               <ThemedText type="small" style={{ color: Colors.dark.maybe }}>
                 No connection. Showing the forecast saved at {clock(forecast.fetchedAt, forecast.utcOffset)}. Pull down to try again.
@@ -211,6 +215,7 @@ export default function TodayScreen() {
 }
 
 const styles = StyleSheet.create({
+  nowLine: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

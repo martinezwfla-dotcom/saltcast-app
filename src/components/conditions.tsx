@@ -2,6 +2,7 @@ import { useEffect, useRef, type ComponentRef } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
+import { dayKind, SkyIcon } from '@/components/sky-icon';
 import { Card, Icon, VerdictColor, VerdictPill } from '@/components/ui';
 import { moonInfo } from '@/lib/moon';
 import { Colors, Spacing } from '@/constants/theme';
@@ -249,7 +250,11 @@ export function DailyForecast({
             <View style={styles.dayRow}>
               <View style={styles.dayName}>
                 <ThemedText type="smallBold">{dayLabel(d.time, utcOffset, now)}</ThemedText>
-                <Icon name={weatherSymbol(d.weatherCode, true)} size={22} color={C.text} />
+                {dayKind(d) ? (
+                  <SkyIcon kind={dayKind(d)} size={26} />
+                ) : (
+                  <Icon name={weatherSymbol(d.weatherCode, true)} size={22} color={C.text} />
+                )}
                 <ThemedText type="small" themeColor="textSecondary">
                   {weatherText(d.weatherCode)}
                 </ThemedText>
