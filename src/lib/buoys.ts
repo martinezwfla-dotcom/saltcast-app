@@ -26,6 +26,49 @@ export type Station = {
   buoy: boolean;
 };
 
+/** Plain names for well-known Florida stations (NDBC ids). Others show their id. */
+const Names: Record<string, string> = {
+  VENF1: 'Venice',
+  FMRF1: 'Fort Myers',
+  NPSF1: 'Naples',
+  KYWF1: 'Key West',
+  SMKF1: 'Sombrero Key',
+  MLRF1: 'Molasses Reef',
+  LONF1: 'Long Key',
+  VAKF1: 'Virginia Key',
+  LKWF1: 'Lake Worth Pier',
+  TRDF1: 'Trident Pier',
+  SAUF1: 'St. Augustine',
+  MYPF1: 'Mayport',
+  FRDF1: 'Fernandina Beach',
+  CWBF1: 'Clearwater Beach',
+  SAPF1: 'St. Petersburg',
+  PMAF1: 'Port Manatee',
+  CDRF1: 'Cedar Key',
+  APCF1: 'Apalachicola',
+  PCLF1: 'Pensacola',
+  '42036': 'West Tampa',
+  '42099': 'Offshore St. Petersburg',
+  '42098': 'Egmont Channel',
+  '42013': 'West Florida Shelf C10',
+  '42097': 'Pulley Ridge',
+  '42003': 'East Gulf',
+  '42039': 'Pensacola 115 nm SSE',
+  '41114': 'Fort Pierce',
+  '41113': 'Cape Canaveral Nearshore',
+  '41009': 'Canaveral 20 nm East',
+  '41117': 'St. Augustine',
+  '41112': 'Offshore Fernandina',
+  '41122': 'Hollywood Beach',
+};
+
+/** "Venice (VENF1)", or "Buoy 42013" / "Station XYZF1" when the name isn't known. */
+export function stationLabel(s: Pick<Station, 'id' | 'buoy'>) {
+  const id = s.id.toUpperCase();
+  const name = Names[id];
+  return name ? `${name} (${id})` : `${s.buoy ? 'Buoy' : 'Station'} ${id}`;
+}
+
 let cache: { at: number; stations: Station[] } | undefined;
 
 function parse(text: string): Station[] {
