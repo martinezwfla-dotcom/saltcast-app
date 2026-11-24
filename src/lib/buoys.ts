@@ -62,6 +62,13 @@ const Names: Record<string, string> = {
   '41122': 'Hollywood Beach',
 };
 
+/** Stations up a river or inside a bay: listed after open-coast stations and labeled (matches the website). */
+const Kinds: Record<string, 'river' | 'bay'> = { FMRF1: 'river', SAPF1: 'bay', PMAF1: 'bay', PCLF1: 'bay', APCF1: 'bay' };
+
+export function stationKind(id: string) {
+  return Kinds[id.toUpperCase()];
+}
+
 /** "Venice (VENF1)", or "Buoy 42013" / "Station XYZF1" when the name isn't known. */
 export function stationLabel(s: Pick<Station, 'id' | 'buoy'>) {
   const id = s.id.toUpperCase();
@@ -138,9 +145,13 @@ export function milesBetween(lat1: number, lon1: number, lat2: number, lon2: num
  */
 export function pickStations(all: Station[], lat: number, lon: number, water: Water) {
   const withDist = all
-    .map((s) => ({ ...s, miles: milesBetween(lat, lon, s.lat, s.lon) }))
+    .map((s) => {
+      const kind = stationKind(s.id);
+      const later = kind === 'river' || (kind === 'bay' && water !== 'inshore') ? 1 : 0;
+      return { ...s, miles: milesBetween(lat, lon, s.lat, s.lon), later };
+    })
     .filter((s) => s.wind != null || s.waves != null || s.waterTemp != null)
-    .sort((a, b) => a.miles - b.miles);
+    .sort((a, b) => a.later - b.later || a.miles - b.miles);
   if (water === 'off') return withDist.filter((s) => s.buoy && s.miles < 160).slice(0, 3);
   if (water === 'inshore') return withDist.filter((s) => !s.buoy && s.miles < 45).slice(0, 3);
   const near = withDist.filter((s) => s.miles < 60).slice(0, 2);
