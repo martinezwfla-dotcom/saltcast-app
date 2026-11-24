@@ -190,6 +190,9 @@ export default function TodayScreen() {
 
           <ThemedText type="smallBold">
             {days.length}-day forecast for {activity.name.toLowerCase()}
+            <ThemedText type="small" themeColor="textSecondary">
+              {'  '}Tap a day for hour by hour
+            </ThemedText>
           </ThemedText>
           <DailyForecast
             days={days}
@@ -198,6 +201,9 @@ export default function TodayScreen() {
             now={now}
             activity={activityId}
             water={water}
+            forecast={forecast}
+            spot={spot}
+            activityInfo={activity}
           />
 
           <ThemedText type="small" themeColor="textSecondary" style={styles.updated}>

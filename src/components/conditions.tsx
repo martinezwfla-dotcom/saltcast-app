@@ -1,7 +1,8 @@
-import { useEffect, useRef, type ComponentRef } from 'react';
+import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
+import { DayDetail } from '@/components/day-detail';
 import { dayKind, SkyIcon } from '@/components/sky-icon';
 import { Card, Icon, VerdictColor, VerdictPill } from '@/components/ui';
 import { moonInfo } from '@/lib/moon';
@@ -228,6 +229,9 @@ export function DailyForecast({
   now,
   activity,
   water,
+  forecast,
+  spot,
+  activityInfo,
 }: {
   days: DaySummary[];
   units: Units;
@@ -235,8 +239,14 @@ export function DailyForecast({
   now: number;
   activity: ActivityId;
   water: Water;
+  /** With these, tapping a day opens its hour-by-hour details. */
+  forecast?: Forecast;
+  spot?: Spot;
+  activityInfo?: Activity;
 }) {
   const whys = explainDays(days, activity, units, water, utcOffset, now);
+  const [open, setOpen] = useState<number | null>(null);
+  const tappable = !!(forecast && spot && activityInfo);
   return (
     <Card style={styles.daily}>
       {days.map((d, i) => {
@@ -246,7 +256,13 @@ export function DailyForecast({
             : windSpeed(d.windMax, units);
         const why = whys[i];
         return (
-          <View key={d.time} style={[styles.dayBlock, i > 0 && styles.dayDivider]}>
+          <Pressable
+            key={d.time}
+            disabled={!tappable}
+            onPress={() => setOpen(i)}
+            accessibilityRole={tappable ? 'button' : undefined}
+            accessibilityHint={tappable ? 'Opens hour-by-hour details for this day' : undefined}
+            style={({ pressed }) => [styles.dayBlock, i > 0 && styles.dayDivider, pressed && styles.dayPressed]}>
             <View style={styles.dayRow}>
               <View style={styles.dayName}>
                 <ThemedText type="smallBold">{dayLabel(d.time, utcOffset, now)}</ThemedText>
@@ -305,11 +321,31 @@ export function DailyForecast({
               <ThemedText type="small" themeColor="textSecondary" style={styles.dayWhy}>
                 {why.lead ? <ThemedText type="smallBold">{why.lead} </ThemedText> : null}
                 {why.text}
+                {tappable ? <ThemedText type="smallBold" style={{ color: C.accent }}> Details ›</ThemedText> : null}
+              </ThemedText>
+            ) : tappable ? (
+              <ThemedText type="smallBold" style={{ color: C.accent }}>
+                Details ›
               </ThemedText>
             ) : null}
-          </View>
+          </Pressable>
         );
       })}
+      {tappable ? (
+        <DayDetail
+          index={open}
+          days={days}
+          whys={whys}
+          forecast={forecast!}
+          spot={spot!}
+          activity={activityInfo!}
+          units={units}
+          water={water}
+          now={now}
+          onChange={setOpen}
+          onClose={() => setOpen(null)}
+        />
+      ) : null}
     </Card>
   );
 }
@@ -342,6 +378,7 @@ const styles = StyleSheet.create({
   dayBlock: { paddingVertical: 10, gap: 6 },
   dayRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
   dayWhy: { lineHeight: 19 },
+  dayPressed: { backgroundColor: C.backgroundSelected },
   dayDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border },
   dayName: { width: 88, gap: 4 },
   dayMiddle: { flex: 1, gap: 4 },
