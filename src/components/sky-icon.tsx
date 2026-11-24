@@ -1,7 +1,7 @@
 import Svg, { Circle, G, Line, Path } from 'react-native-svg';
 
 import type { DaySummary } from '@/lib/daily';
-import type { HourForecast } from '@/lib/forecast';
+import { effectiveCloud, isWetHour, type HourForecast } from '@/lib/forecast';
 
 /** Our own weather icons, same drawings as the website's 10-day outlook. */
 export type SkyKind =
@@ -169,8 +169,8 @@ export function hourKind(h: HourForecast): SkyKind | null {
   const code = h.weatherCode;
   if (code != null && code >= 95) return 'storm';
   if (code != null && code >= 45 && code <= 48) return 'fog';
-  if (code != null && code >= 51 && code <= 82) return 'rain';
-  const cover = h.cloudCover ?? (code == null ? null : code === 0 ? 5 : code === 1 ? 25 : code === 2 ? 50 : 95);
+  if (isWetHour(h)) return 'rain';
+  const cover = effectiveCloud(h);
   if (cover == null) return null;
   const level = cover < 15 ? 0 : cover < 35 ? 1 : cover < 65 ? 2 : cover < 85 ? 3 : 4;
   if (!h.isDay) return level <= 1 ? 'moon' : level <= 3 ? 'mooncloud' : 'cloud';

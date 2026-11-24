@@ -1,7 +1,7 @@
 import type { ActivityId } from '@/data/activities';
 import type { DaySummary } from '@/lib/daily';
 import { compass, dayLabel, height, windSpeed, type Units } from '@/lib/format';
-import type { HourForecast, Water } from '@/lib/forecast';
+import { effectiveCloud, isWetHour, type HourForecast, type Water } from '@/lib/forecast';
 import { verdictRank, VerdictLabel } from '@/lib/verdict';
 
 /** A day's note: an optional bold lead ("Worse than Wed:") and the plain-English reason. */
@@ -182,11 +182,8 @@ export function skyNow(hour: HourForecast) {
   const code = hour.weatherCode;
   if (code != null && code >= 95) return '';
   if (code != null && code >= 45 && code <= 48) return 'Foggy';
-  if (code != null && code >= 51 && code <= 57) return 'Drizzle';
-  if (code != null && code >= 61 && code <= 67) return 'Rain';
-  if (code != null && code >= 80 && code <= 82) return 'Showers';
-  const cover =
-    hour.cloudCover ?? (code == null ? null : code === 0 ? 5 : code === 1 ? 25 : code === 2 ? 50 : 95);
+  if (isWetHour(hour) && code != null) return code <= 57 ? 'Drizzle' : code <= 67 ? 'Rain' : 'Showers';
+  const cover = effectiveCloud(hour);
   if (cover == null) return '';
   const level = cover < 15 ? 0 : cover < 35 ? 1 : cover < 65 ? 2 : cover < 85 ? 3 : 4;
   return (hour.isDay ? DayWords : NightWords)[level];

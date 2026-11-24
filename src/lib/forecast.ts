@@ -9,6 +9,9 @@ export type HourForecast = {
   weatherCode: number | null;
   /** Cloud cover, percent. Missing in forecasts cached by older versions. */
   cloudCover?: number | null;
+  cloudLow?: number | null;
+  cloudMid?: number | null;
+  cloudHigh?: number | null;
   wind: number | null;
   windDir: number | null;
   gusts: number | null;
@@ -114,6 +117,9 @@ function fetchWeather(p: Point, days: number) {
       'wind_gusts_10m',
       'is_day',
       'cloud_cover',
+      'cloud_cover_low',
+      'cloud_cover_mid',
+      'cloud_cover_high',
     ].join(','),
     wind_speed_unit: 'kn',
     temperature_unit: 'fahrenheit',
@@ -224,6 +230,9 @@ export async function fetchForecast(spot: Spot, water: Water = 'near'): Promise<
       precipChance: w.precipitation_probability?.[i] ?? null,
       weatherCode: w.weather_code?.[i] ?? null,
       cloudCover: w.cloud_cover?.[i] ?? null,
+      cloudLow: w.cloud_cover_low?.[i] ?? null,
+      cloudMid: w.cloud_cover_mid?.[i] ?? null,
+      cloudHigh: w.cloud_cover_high?.[i] ?? null,
       wind: w.wind_speed_10m?.[i] ?? null,
       windDir: w.wind_direction_10m?.[i] ?? null,
       gusts: w.wind_gusts_10m?.[i] ?? null,
@@ -264,4 +273,23 @@ export async function fetchForecast(spot: Spot, water: Water = 'near'): Promise<
 export function currentHourIndex(forecast: Forecast, now: number) {
   const i = forecast.hours.findIndex((h) => h.time + 3600 * 1000 > now);
   return i === -1 ? forecast.hours.length - 1 : i;
+}
+
+/**
+ * How cloudy the sky looks, 0 to 100: low and mid clouds count fully, thin high cirrus counts 40%
+ * (it still looks sunny). Falls back to total cloud cover, then the weather code. Same as the website.
+ */
+export function effectiveCloud(h: HourForecast): number | null {
+  if (h.cloudLow != null || h.cloudMid != null || h.cloudHigh != null) {
+    return Math.max(h.cloudLow ?? 0, h.cloudMid ?? 0, 0.4 * (h.cloudHigh ?? 0));
+  }
+  if (h.cloudCover != null) return h.cloudCover;
+  const code = h.weatherCode;
+  return code == null ? null : code === 0 ? 5 : code === 1 ? 25 : code === 2 ? 50 : 95;
+}
+
+/** A rain weather code with a real (35%+) chance of rain, so a stray model drizzle code doesn't count. */
+export function isWetHour(h: HourForecast) {
+  const code = h.weatherCode;
+  return code != null && code >= 51 && code <= 82 && (h.precipChance == null || h.precipChance >= 35);
 }

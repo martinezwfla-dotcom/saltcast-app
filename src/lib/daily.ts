@@ -1,6 +1,6 @@
 import type { Activity } from '@/data/activities';
 import type { Spot } from '@/data/spots';
-import type { Forecast, HourForecast } from '@/lib/forecast';
+import { effectiveCloud, isWetHour, type Forecast, type HourForecast } from '@/lib/forecast';
 import { rateHour, verdictRank, type HourVerdict, type Verdict } from '@/lib/verdict';
 
 export type DaySummary = {
@@ -71,21 +71,9 @@ export type DaySky = { level: number | null; rain: 0 | 1 | 2 };
 /** Average daylight cloud cover (weather codes when it is missing) and how many hours have showers. */
 function daySky(hours: HourForecast[]): DaySky | null {
   if (!hours.length) return null;
-  const cover = (h: HourForecast) =>
-    h.cloudCover != null
-      ? h.cloudCover
-      : h.weatherCode == null
-        ? null
-        : h.weatherCode === 0
-          ? 5
-          : h.weatherCode === 1
-            ? 25
-            : h.weatherCode === 2
-              ? 50
-              : 95;
-  const v = hours.map(cover).filter((x): x is number => x != null);
+  const v = hours.map(effectiveCloud).filter((x): x is number => x != null);
   const mean = v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
-  const wet = hours.filter((h) => h.weatherCode != null && h.weatherCode >= 51 && h.weatherCode <= 82).length;
+  const wet = hours.filter(isWetHour).length;
   const level = mean == null ? null : mean < 15 ? 0 : mean < 35 ? 1 : mean < 65 ? 2 : mean < 85 ? 3 : 4;
   return { level, rain: wet >= Math.max(3, hours.length * 0.4) ? 2 : wet > 0 ? 1 : 0 };
 }
