@@ -25,8 +25,10 @@ type Settings = {
   /** Built-in spots removed from the Spots list. */
   hidden: string[];
   units: Units;
-  /** Inshore, nearshore (default) or offshore forecasts. */
+  /** Inshore, nearshore (default) or offshore forecasts. For a searched place this is that place's water. */
   water: Water;
+  /** Water picked for each searched place (they keep their own; the 20 spots share `water`). */
+  placeWater: Record<string, Water>;
 };
 
 type SettingsContextValue = Settings & {
@@ -62,7 +64,22 @@ const Defaults: Settings = {
   hidden: [],
   units: 'imperial',
   water: 'near',
+  placeWater: {},
 };
+
+// A searched town that isn't a beach (Placida, Matlacha, Cortez...) sits on a bay or sound, so it starts on
+// Inshore: Nearshore rates the open water a few miles off the beach, which can be rough while the sound is calm.
+const Beachy = /beach|key\b|keys|island|isle|pier|inlet|shores|jetty|sands|surf/i;
+const isWater = (w: unknown): w is Water => w === 'inshore' || w === 'near' || w === 'off';
+
+/** The water used for the current spot and activity. */
+function currentWater(s: Settings): Water {
+  const place = s.customSpots.find((c) => c.id === s.spotId);
+  let w: Water = place ? (isWater(s.placeWater[place.id]) ? s.placeWater[place.id] : Beachy.test(place.name) ? 'near' : 'inshore') : s.water;
+  // Surfing always reads the beach (Nearshore). Kayak & SUP stay close in: Offshore becomes Nearshore.
+  if (s.activityId === 'surfing' || (s.activityId === 'paddling' && w === 'off')) w = 'near';
+  return w;
+}
 
 /** Drops searched places that are neither a favorite nor the current spot. */
 function prune(s: Settings): Settings {
@@ -89,6 +106,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           if (!Array.isArray(saved.hidden)) saved.hidden = [];
           if (typeof saved.changeAlerts !== 'boolean') saved.changeAlerts = false;
           if (!['inshore', 'near', 'off'].includes(saved.water)) saved.water = 'near';
+          if (!saved.placeWater || typeof saved.placeWater !== 'object') saved.placeWater = {};
           if (!['all', 'fav', 'severe'].includes(saved.changeAlertMode)) saved.changeAlertMode = 'all';
           // People updating from an earlier version have already set the app up.
           if (typeof parsed.onboarded !== 'boolean') saved.onboarded = true;
@@ -106,6 +124,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const value = useMemo<SettingsContextValue>(
     () => ({
       ...settings,
+      water: currentWater(settings),
       loaded,
       // Surfing always reads the beach (Nearshore). Kayak & SUP stay close in: Offshore switches to Nearshore, Inshore is kept.
       setActivity: (activityId) =>
@@ -146,7 +165,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         }),
       showSpot: (id) => setSettings((s) => ({ ...s, hidden: id ? s.hidden.filter((h) => h !== id) : [] })),
       setUnits: (units) => setSettings((s) => ({ ...s, units })),
-      setWater: (water) => setSettings((s) => ({ ...s, water })),
+      setWater: (water) =>
+        setSettings((s) =>
+          s.customSpots.some((c) => c.id === s.spotId) ? { ...s, placeWater: { ...s.placeWater, [s.spotId]: water } } : { ...s, water },
+        ),
     }),
     [settings, loaded],
   );
