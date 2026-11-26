@@ -46,7 +46,14 @@ const CHECKED: Checked[] = [
   {area:"srq",name:"MarineMax Venice",match:/marinemax venice/i,kind:"Marina",offers:["Fuel", "Ice"]},
   {area:"srq",name:"Crow's Nest Marina",match:/crow.?s nest/i,kind:"Marina",offers:["Fuel", "Bait & tackle", "Ice"]},
   {area:"srq",name:"Fisherman's Wharf Marina",match:/fisherman.?s wharf/i,kind:"Marina",offers:["Fuel", "Bait & tackle", "Ice"]},
-  {area:"bgr",name:"Boca Grande Marina",match:/boca grande marina/i,kind:"Marina",offers:["Fuel", "Bait & tackle", "Ice"]},
+  {name:"Boca Grande Marina",match:/boca grande marina/i,kind:"Marina",lat:26.7472,lon:-82.2563,
+   offers:["Fuel","Ice","Bait & tackle","Food","Beer & drinks"],phone:"941-964-2100",addr:"220 Harbor Dr, Boca Grande"},
+  {name:"Miller's Dockside",match:/miller.?s dockside|millers? dockside/i,kind:"Restaurant",lat:26.7474,lon:-82.2561,
+   offers:["Food","Beer & drinks"],phone:"941-964-8000",addr:"220 Harbor Dr, Boca Grande (at Boca Grande Marina)"},
+  {name:"Eagle Grille",match:/eagle grill/i,kind:"Restaurant",lat:26.7470,lon:-82.2565,
+   offers:["Food","Beer & drinks"],phone:"941-964-8000",addr:"220 Harbor Dr, Boca Grande (at Boca Grande Marina, upstairs)"},
+  {name:"The Pink Elephant",match:/pink elephant/i,kind:"Restaurant",lat:26.7518,lon:-82.2579,
+   offers:["Food","Beer & drinks"],addr:"491 Bayou Ave, Boca Grande (small dock, call ahead)"},
   {area:"bgr",name:"Cape Haze Marina",match:/cape haze marina/i,kind:"Marina",offers:["Fuel", "Ice"]},
   {area:"bgr",name:"Stump Pass Marina",match:/stump pass marina/i,kind:"Marina",offers:["Fuel", "Bait & tackle"]},
   {area:"fmb",name:"Salty Sam's Marina",match:/salty sam/i,kind:"Marina",offers:["Fuel", "Ice"]},
@@ -285,12 +292,13 @@ function combine(lat: number, lon: number, act: ActivityId, osm: Place[], fs: Pl
   // For surfing, diving and kayak/SUP keep the shops/rentals found for that activity plus food and ramps.
   const keep = modeFor(act).keep;
   list = list.filter((p) => !keep || (p.fsq && p.offers.length) || (p.kind !== 'Marina' ? hasAny(p, keep) : act === 'paddling' && hasAny(p, ['Boat ramp'])));
-  return list.sort((a, b) => miles(lat, lon, a.lat, a.lon) - miles(lat, lon, b.lat, b.lon));
+  // Places we've checked by hand come first, then everything else by distance.
+  return list.sort((a, b) => Number(!!b.checked) - Number(!!a.checked) || miles(lat, lon, a.lat, a.lon) - miles(lat, lon, b.lat, b.lon));
 }
 
 /** Nearby places for a spot and activity. Cached on the phone for a day; works offline from the cache. */
 export async function loadNearby(lat: number, lon: number, act: ActivityId): Promise<Place[]> {
-  const key = `nearby:v1:${act}:${lat.toFixed(3)},${lon.toFixed(3)}`;
+  const key = `nearby:v2:${act}:${lat.toFixed(3)},${lon.toFixed(3)}`;
   try {
     const c = JSON.parse((await AsyncStorage.getItem(key)) || 'null');
     if (c && Date.now() - c.t < 864e5 && c.list.length) return c.list;
