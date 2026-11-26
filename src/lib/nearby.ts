@@ -22,14 +22,16 @@ export type Place = {
   web: string;
   addr: string;
   hours: string;
+  note?: string;
   checked?: boolean;
   fsq?: boolean;
 };
 
-type Checked = { area?: string; name: string; match: RegExp; kind?: string; lat?: number; lon?: number; offers?: string[]; phone?: string; addr?: string };
+type Checked = { area?: string; name: string; match: RegExp; kind?: string; lat?: number; lon?: number; offers?: string[]; phone?: string; addr?: string; note?: string };
 
-// Confirmed amenities (copied from marinas.js CHECKED on the website).
-const CHECKED: Checked[] = [
+// Confirmed amenities. The live list is the website's /checked.json (loadChecked below); this copy is only
+// the fallback for a first launch with no connection.
+const FALLBACK: Checked[] = [
   {name:"Gasparilla Marina",match:/gasparilla marina/i,kind:"Marina",lat:26.834,lon:-82.2593,
    offers:["Fuel","Beer & drinks","Ice","Bait & tackle"],phone:"941-697-2280",addr:"15001 Gasparilla Rd, Placida"},
   {name:"Smokin' Jerry's Tiki Bar & Grill",match:/smokin.? jerry|waterside grill/i,kind:"Restaurant",lat:26.8342,lon:-82.2594,
@@ -239,6 +241,45 @@ async function getJSON(url: string, ms = 15000) {
   }
 }
 
+let CHECKED: Checked[] = FALLBACK;
+let checkedAt = 0;
+const pinsGot = new Set<string>();
+type CheckedJSON = { places: (Omit<Checked, 'match'> & { match: string })[] };
+function applyChecked(j: CheckedJSON) {
+  CHECKED = j.places.map((x) => ({ ...x, match: new RegExp(x.match, 'i') }));
+}
+async function loadChecked() {
+  if (Date.now() - checkedAt < 36e5) return;
+  try {
+    const j = (await getJSON(`${SITE}/checked.json`, 10000)) as CheckedJSON;
+    applyChecked(j);
+    checkedAt = Date.now();
+    pinsGot.clear();
+    AsyncStorage.setItem('checked:v1', JSON.stringify(j)).catch(() => {});
+  } catch {
+    try {
+      const c = await AsyncStorage.getItem('checked:v1');
+      if (c && CHECKED === FALLBACK) applyChecked(JSON.parse(c));
+    } catch {}
+  }
+}
+// Map pins for checked places that have none of their own (looked up by the website once a month).
+async function loadPins(lat: number, lon: number) {
+  const ids = Object.keys(BASE).filter((id) => !pinsGot.has(id) && miles(lat, lon, BASE[id][0], BASE[id][1]) <= RADIUS_MI + 30);
+  await Promise.all(
+    ids.map(async (id) => {
+      try {
+        const j = await getJSON(`${SITE}/api/pins?area=${id}`, 10000);
+        pinsGot.add(id);
+        CHECKED.forEach((c) => {
+          const v = j.pins?.[c.name];
+          if (c.area === id && v && c.lat == null) Object.assign(c, { lat: v[0], lon: v[1], addr: c.addr || v[2] });
+        });
+      } catch {}
+    }),
+  );
+}
+
 async function osmList(lat: number, lon: number): Promise<Place[]> {
   const ids = Object.keys(BASE)
     .map((id) => ({ id, d: miles(lat, lon, BASE[id][0], BASE[id][1]) }))
@@ -282,10 +323,10 @@ function combine(lat: number, lon: number, act: ActivityId, osm: Place[], fs: Pl
     });
     if (!c) return p;
     used.push(c);
-    return { ...p, name: c.name, kind: c.kind || p.kind, checked: true, offers: p.offers.concat((c.offers || []).filter((o) => !p.offers.includes(o))), phone: c.phone || p.phone, addr: c.addr || p.addr };
+    return { ...p, name: c.name, kind: c.kind || p.kind, checked: true, offers: p.offers.concat((c.offers || []).filter((o) => !p.offers.includes(o))), phone: c.phone || p.phone, addr: c.addr || p.addr, note: c.note || p.note };
   });
   CHECKED.filter((c) => c.lat != null && !used.includes(c) && miles(lat, lon, c.lat, c.lon!) <= RADIUS_MI).forEach((c) =>
-    list.push({ name: c.name, kind: c.kind || 'Marina', lat: c.lat!, lon: c.lon!, offers: c.offers || [], phone: c.phone || '', web: '', addr: c.addr || '', hours: '', checked: true }),
+    list.push({ name: c.name, kind: c.kind || 'Marina', lat: c.lat!, lon: c.lon!, offers: c.offers || [], phone: c.phone || '', web: '', addr: c.addr || '', hours: '', note: c.note, checked: true }),
   );
   const seen = new Set<string>();
   list = list.filter((p) => { const k = p.name.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
@@ -298,12 +339,12 @@ function combine(lat: number, lon: number, act: ActivityId, osm: Place[], fs: Pl
 
 /** Nearby places for a spot and activity. Cached on the phone for a day; works offline from the cache. */
 export async function loadNearby(lat: number, lon: number, act: ActivityId): Promise<Place[]> {
-  const key = `nearby:v2:${act}:${lat.toFixed(3)},${lon.toFixed(3)}`;
+  const key = `nearby:v3:${act}:${lat.toFixed(3)},${lon.toFixed(3)}`;
   try {
     const c = JSON.parse((await AsyncStorage.getItem(key)) || 'null');
     if (c && Date.now() - c.t < 864e5 && c.list.length) return c.list;
   } catch {}
-  const [osm, fs] = await Promise.all([osmList(lat, lon), fsqList(lat, lon, act)]);
+  const [osm, fs] = await Promise.all([osmList(lat, lon), fsqList(lat, lon, act), loadChecked().then(() => loadPins(lat, lon))]);
   const list = combine(lat, lon, act, osm, fs);
   if (list.length) AsyncStorage.setItem(key, JSON.stringify({ t: Date.now(), list })).catch(() => {});
   return list;

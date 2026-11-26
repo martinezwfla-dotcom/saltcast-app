@@ -123,7 +123,7 @@ export function NearbyPanel({ spot, activityId }: { spot: Spot; activityId: Acti
 
 function PlaceRow({ p, spot, boat }: { p: Place; spot: Spot; boat: boolean }) {
   const d = miles(spot.lat, spot.lon, p.lat, p.lon);
-  const dine = boat && !p.fsq && /^(Restaurant|Bar)$/.test(p.kind) ? ' · by the docks, call about tie-up' : '';
+  const dine = boat && !p.fsq && !p.note && /^(Restaurant|Bar)$/.test(p.kind) ? ' · by the docks, call about tie-up' : '';
   return (
     <View style={styles.place}>
       <View style={styles.top}>
@@ -144,6 +144,11 @@ function PlaceRow({ p, spot, boat }: { p: Place; spot: Spot; boat: boolean }) {
         {dine}
         {p.addr ? ` · ${p.addr}` : ''}
       </ThemedText>
+      {p.note ? (
+        <ThemedText type="small" themeColor="textSecondary">
+          {p.note}
+        </ThemedText>
+      ) : null}
       {p.offers.length ? (
         <View style={styles.legend}>
           {order(p.offers).map((o) => (
