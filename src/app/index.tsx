@@ -8,6 +8,7 @@ import { ForecastCharts } from '@/components/charts';
 import { Welcome } from '@/components/welcome';
 
 import { ConditionsGrid, DailyForecast, HourlyStrip, TideCard } from '@/components/conditions';
+import { TrendText } from '@/components/trend-text';
 import { BuoyCard, LocalCard, SafetyAlerts, WaterPicker } from '@/components/extras';
 import { ThemedText } from '@/components/themed-text';
 import { hourKind, SkyIcon } from '@/components/sky-icon';
@@ -117,6 +118,14 @@ export default function TodayScreen() {
               <SkyIcon kind={hourKind(hour)} size={26} />
               <ThemedText style={{ flexShrink: 1 }}>{nowLine(hour, rating.reasons)}</ThemedText>
             </View>
+            {days[0]?.trend ? (
+              <View style={styles.nowLine}>
+                <ThemedText type="small" themeColor="textSecondary" style={styles.todayTag}>
+                  TODAY
+                </ThemedText>
+                <TrendText steps={days[0].trend} utcOffset={forecast.utcOffset} />
+              </View>
+            ) : null}
             {offline ? (
               <ThemedText type="small" style={{ color: Colors.dark.maybe }}>
                 No connection. Showing the forecast saved at {clock(forecast.fetchedAt, forecast.utcOffset)}. Pull down to try again.
@@ -222,6 +231,7 @@ export default function TodayScreen() {
 
 const styles = StyleSheet.create({
   nowLine: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  todayTag: { letterSpacing: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

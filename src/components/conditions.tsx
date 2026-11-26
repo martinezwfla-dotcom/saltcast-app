@@ -10,6 +10,7 @@ import { Colors, Spacing } from '@/constants/theme';
 import type { Activity, ActivityId } from '@/data/activities';
 import type { Spot } from '@/data/spots';
 import type { DaySummary } from '@/lib/daily';
+import { TrendText } from '@/components/trend-text';
 import type { Forecast, HourForecast, TideEvent, Water } from '@/lib/forecast';
 import { clock, compass, dayLabel, height, temperature, weatherShort, weatherSymbol, weatherText, windSpeed, type Units } from '@/lib/format';
 import { rateHour, VerdictLabel, windRelation } from '@/lib/verdict';
@@ -276,7 +277,12 @@ export function DailyForecast({
                 </ThemedText>
               </View>
               <View style={styles.dayMiddle}>
-                {d.verdict ? (
+                {d.trend ? (
+                  <View style={styles.dayVerdict}>
+                    <VerdictPill verdict={d.trend[0].verdict} />
+                    <TrendText steps={d.trend} utcOffset={utcOffset} afterPill />
+                  </View>
+                ) : d.verdict ? (
                   <View style={styles.dayVerdict}>
                     <VerdictPill verdict={d.verdict} />
                     {d.window ? (

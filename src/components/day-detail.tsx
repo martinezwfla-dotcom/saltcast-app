@@ -3,6 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { dayKind, hourKind, SkyIcon } from '@/components/sky-icon';
+import { TrendText } from '@/components/trend-text';
 import { Card, Icon, VerdictColor, VerdictPill } from '@/components/ui';
 import { Colors, Spacing } from '@/constants/theme';
 import type { Activity } from '@/data/activities';
@@ -155,8 +156,15 @@ function Body({
           <ThemedText type="small" themeColor="textSecondary">
             {activity.name}
           </ThemedText>
-          {d.verdict ? <VerdictPill verdict={d.verdict} /> : null}
-          {d.window ? (
+          {d.trend ? (
+            <>
+              <VerdictPill verdict={d.trend[0].verdict} />
+              <TrendText steps={d.trend} utcOffset={forecast.utcOffset} afterPill />
+            </>
+          ) : d.verdict ? (
+            <VerdictPill verdict={d.verdict} />
+          ) : null}
+          {d.trend ? null : d.window ? (
             <ThemedText type="smallBold" style={{ color: VerdictColor[d.window.verdict] }}>
               {VerdictLabel[d.window.verdict]} {clock(d.window.start, forecast.utcOffset)} to{' '}
               {clock(d.window.end, forecast.utcOffset)}

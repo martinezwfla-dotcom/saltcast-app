@@ -32,7 +32,27 @@ export type DaySummary = {
   verdict?: Verdict;
   /** The longest daylight stretch at the best hour's verdict, when it beats the day's rating. */
   window?: { start: number; end: number; verdict: Verdict };
+  /**
+   * Today only: how the rating changes over the rest of the daylight, e.g. Favorable now,
+   * Not ideal by 12p, No Go by 3p. Set only when it changes. Same rule as the website.
+   */
+  trend?: TrendStep[];
 };
+
+export type TrendStep = { verdict: Verdict; time: number; now?: boolean };
+
+/** A change has to last 2 hours (or run to sunset) to count, so one odd hour doesn't flip it. */
+function trendOf(rated: { hour: HourForecast; rating: HourVerdict }[], startsNow: boolean): TrendStep[] | undefined {
+  if (rated.length < 2) return undefined;
+  const steps: TrendStep[] = [{ verdict: rated[0].rating.verdict, time: rated[0].hour.time, now: startsNow }];
+  for (let i = 1; i < rated.length; i++) {
+    const v = rated[i].rating.verdict;
+    if (v !== steps[steps.length - 1].verdict && (i === rated.length - 1 || rated[i + 1].rating.verdict === v)) {
+      steps.push({ verdict: v, time: rated[i].hour.time });
+    }
+  }
+  return steps.length > 1 ? steps.slice(0, 4) : undefined;
+}
 
 const max = (xs: (number | null)[]) => {
   const v = xs.filter((x): x is number => x != null);
@@ -159,6 +179,7 @@ export function summarizeDays(forecast: Forecast, activity: Activity, spot: Spot
         best,
         verdict,
         window,
+        trend: d === today ? trendOf(rated, relevant.length > 0 && relevant[0].isDay) : undefined,
       };
     });
 }
