@@ -94,14 +94,21 @@ function forecastPoint(spot: Spot, water: Water): Point {
   };
 }
 
-/** Wind chop in feet on protected water: fetch-limited waves over about 5 miles, capped at 3.5 ft. */
+/**
+ * Wind chop in feet in a sheltered bay or sound: Shore Protection Manual shallow-water formula over about
+ * 2.5 miles of open water 5 ft deep (Gasparilla Sound, Lemon Bay, the ICW). Same as the website.
+ * The old deep-water 5-mile version gave about 1.9 ft at 20 kt, far rougher than these sounds get.
+ */
 export function chopFeet(kt: number | null) {
   if (kt == null) return null;
   const u = Math.max(kt, 1) * 0.5144;
   const ua = 0.71 * Math.pow(u, 1.23);
   const g = 9.81;
-  const fetchMeters = 8000;
-  return Math.min(0.0016 * Math.sqrt((g * fetchMeters) / (ua * ua)) * ((ua * ua) / g) * FeetPerMeter, 3.5);
+  const fetchMeters = 4000;
+  const depth = 1.5;
+  const k = (ua * ua) / g;
+  const a = Math.tanh(0.53 * Math.pow((g * depth) / (ua * ua), 0.75));
+  return Math.min(0.283 * k * a * Math.tanh((0.00565 * Math.sqrt((g * fetchMeters) / (ua * ua))) / a) * FeetPerMeter, 3);
 }
 
 function fetchWeather(p: Point, days: number) {
