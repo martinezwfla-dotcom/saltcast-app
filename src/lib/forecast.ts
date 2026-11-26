@@ -22,6 +22,8 @@ export type HourForecast = {
   swellDir: number | null;
   swellPeriod: number | null;
   waterTemp: number | null;
+  /** Inshore (bay, sound, ICW) hour: wind is the town's, so the model's gust spread over land is ignored. */
+  sheltered?: boolean;
 };
 
 export type TideEvent = { time: number; height: number; type: 'high' | 'low' };
@@ -257,6 +259,7 @@ export async function fetchForecast(spot: Spot, water: Water = 'near'): Promise<
   if (water === 'inshore') {
     for (const h of hours) {
       h.waveHeight = chopFeet(h.wind);
+      h.sheltered = true;
       h.waveDir = h.windDir;
       h.wavePeriod = null;
       h.swellHeight = null;
