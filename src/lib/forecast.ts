@@ -85,6 +85,17 @@ type Point = { lat: number; lon: number; timezone: string };
  * beach faces, with the land time zone named (far out, "auto" can pick a nautical zone).
  */
 function forecastPoint(spot: Spot, water: Water): Point {
+  if (water === 'inshore') {
+    // Inside the bay or sound, behind the beach: the spot's own inshore point, or about 6 miles back from the
+    // offshore point toward land (searched places use the town itself). Same idea as the website.
+    if (spot.inshore) return { ...spot.inshore, timezone: 'auto' };
+    const back = ((spot.facing + 180) * Math.PI) / 180;
+    return {
+      lat: +(spot.lat + 0.09 * Math.cos(back)).toFixed(3),
+      lon: +(spot.lon + (0.09 * Math.sin(back)) / Math.cos((spot.lat * Math.PI) / 180)).toFixed(3),
+      timezone: 'auto',
+    };
+  }
   if (water !== 'off') return { lat: spot.lat, lon: spot.lon, timezone: 'auto' };
   const rad = (spot.facing * Math.PI) / 180;
   const lat = spot.lat + 0.5 * Math.cos(rad);
