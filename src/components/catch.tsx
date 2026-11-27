@@ -12,7 +12,7 @@ import type { ActivityId } from '@/data/activities';
 const C = Colors.dark;
 const SITE = 'https://saltcastflorida.com';
 const CACHE_KEY = 'catch:list';
-const EVERY = 6000; // rotation speed, ms (same as the website)
+const EVERY = 3000; // rotation speed, ms (same as the website)
 
 type Tab = 'fishing' | 'surfing' | 'diving' | 'boating';
 type Entry = { img: string; name: string; town: string; what?: string; week?: string; alt?: string };
@@ -31,7 +31,7 @@ function tabFor(activityId: ActivityId): Tab {
   return 'fishing';
 }
 
-/** Reads the winners from saltcastflorida.com/catch.json (made from the website's Catch of the Week list on every deploy). */
+/** Reads the winners from saltcastflorida.com/catch.json (made from the website's Share Your Saltcast Pics list on every deploy). */
 function useCatchList() {
   const [list, setList] = useState<CatchList>();
   const [failed, setFailed] = useState(false);
@@ -77,7 +77,7 @@ export function CatchOfTheWeek({ activityId }: { activityId: ActivityId }) {
   return (
     <Card>
       <View style={styles.head}>
-        <ThemedText style={styles.title}>Catch of the Week</ThemedText>
+        <ThemedText style={styles.title}>Share Your Saltcast Pics</ThemedText>
         <ThemedText type="small" themeColor="textSecondary">
           From Saltcast readers
         </ThemedText>
@@ -130,11 +130,6 @@ export function CatchOfTheWeek({ activityId }: { activityId: ActivityId }) {
               </ThemedText>
             ) : null}
           </View>
-          {shown.week ? (
-            <ThemedText type="small" themeColor="textSecondary">
-              {shown.week}
-            </ThemedText>
-          ) : null}
           {count > 1 ? (
             <View style={styles.dots}>
               {entries.map((e, k) => (
@@ -153,7 +148,7 @@ export function CatchOfTheWeek({ activityId }: { activityId: ActivityId }) {
       ) : (
         <ThemedText type="small">
           <ThemedText type="smallBold">No {TABS.find((t) => t.id === tab)?.label.toLowerCase()} photo yet.</ThemedText> Be the first.
-          Send us yours and it could be next week&apos;s pick.
+          Send us yours below.
         </ThemedText>
       )}
 
@@ -236,7 +231,7 @@ function SendPhotoForm({ tab, onClose }: { tab: Tab; onClose: () => void }) {
         <ThemedText type="smallBold" style={{ color: C.go }}>
           Thanks! Your photo was sent.
         </ThemedText>
-        <ThemedText type="small">We look at every entry and pick a Catch of the Week each week.</ThemedText>
+        <ThemedText type="small">We look at every entry and post our favorites.</ThemedText>
         <Pressable onPress={onClose} style={styles.sendBtn} accessibilityRole="button">
           <ThemedText type="smallBold" themeColor="accent">
             Done
@@ -308,7 +303,7 @@ function SendPhotoForm({ tab, onClose }: { tab: Tab; onClose: () => void }) {
         </Pressable>
       </View>
       <ThemedText type="small" themeColor="textSecondary">
-        We pick one photo per activity each week. Only your first name, last initial and town are shown.
+        We post our favorites. Only your first name, last initial and town are shown.
       </ThemedText>
     </View>
   );
