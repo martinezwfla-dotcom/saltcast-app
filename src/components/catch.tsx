@@ -12,7 +12,7 @@ import type { ActivityId } from '@/data/activities';
 const C = Colors.dark;
 const SITE = 'https://saltcastflorida.com';
 const CACHE_KEY = 'catch:list';
-const EVERY = 6000; // rotation speed, ms (same as the website)
+const EVERY = 3000; // rotation speed, ms (same as the website)
 
 type Tab = 'fishing' | 'surfing' | 'diving' | 'boating';
 type Entry = { img: string; name: string; town: string; what?: string; week?: string; alt?: string };
