@@ -1,4 +1,4 @@
-import type { Spot } from '@/data/spots';
+import type { Spot, TideStation } from '@/data/spots';
 
 /** One forecast hour. Wind in knots, waves in feet, temperatures in °F. */
 export type HourForecast = {
@@ -206,9 +206,50 @@ async function fetchStationTides(stationId: string): Promise<TideEvent[]> {
   }));
 }
 
+/** NOAA tide prediction stations in and around Florida, [id, name, lat, lon]; the website refreshes this list from NOAA on every deploy. */
+type StationRow = [string, string, number, number];
+let stationList: Promise<StationRow[]> | undefined;
+function tideStations(): Promise<StationRow[]> {
+  stationList ??= getJson<{ stations?: StationRow[] }>('https://saltcastflorida.com/tide-stations.json')
+    .then((j) => (Array.isArray(j.stations) ? j.stations : []))
+    .catch(() => {
+      stationList = undefined;
+      return [];
+    });
+  return stationList;
+}
+
+/** The NOAA station nearest a point, if one is within 15 miles (same rule as the website). */
+async function nearestStation(lat: number, lon: number): Promise<{ id: string; name: string } | undefined> {
+  const k = Math.cos((lat * Math.PI) / 180);
+  let best: StationRow | undefined;
+  let bd = Infinity;
+  for (const s of await tideStations()) {
+    const d = (s[2] - lat) ** 2 + ((s[3] - lon) * k) ** 2;
+    if (d < bd) {
+      bd = d;
+      best = s;
+    }
+  }
+  return best && Math.sqrt(bd) * 69 <= 15 ? { id: best[0], name: best[1] } : undefined;
+}
+
+/**
+ * The station a spot's tides come from. The 20 Saltcast spots have their own; a searched place uses the
+ * NOAA station nearest the town (within 15 miles), with the nearest Saltcast spot's station as the backup.
+ */
+async function stationFor(spot: Spot): Promise<TideStation> {
+  if (!spot.custom) return spot.tideStation;
+  const town = spot.inshore ?? spot;
+  const near = await nearestStation(town.lat, town.lon);
+  if (!near || near.id === spot.tideStation.id) return spot.tideStation;
+  const { backup: _, ...borrowed } = spot.tideStation;
+  return { ...near, backup: borrowed };
+}
+
 /** Tides from the spot's own NOAA station, or from its backup station if that one has no predictions. */
 async function fetchTides(spot: Spot): Promise<{ tides: TideEvent[]; station: { id: string; name: string } }> {
-  const { backup, ...own } = spot.tideStation;
+  const { backup, ...own } = await stationFor(spot);
   try {
     const tides = await fetchStationTides(own.id);
     if (tides.length || !backup) return { tides, station: own };

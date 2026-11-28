@@ -108,13 +108,19 @@ export function TideCard({
 }) {
   const upcoming = forecast.tides.filter((t) => t.time > now).slice(0, 4);
   const next = upcoming[0];
+  // Height right now: half-cosine between the last and next NOAA high/low (same as the website's Tide now card).
+  const last = [...forecast.tides].reverse().find((t) => t.time <= now);
+  const level =
+    last && next
+      ? (last.height + next.height) / 2 + ((last.height - next.height) / 2) * Math.cos((Math.PI * (now - last.time)) / (next.time - last.time))
+      : undefined;
 
   return (
     <Card>
       <View style={styles.statLabel}>
         <Icon name="arrow.up.and.down" size={16} />
         <ThemedText type="small" themeColor="textSecondary">
-          Tides at {stationName}
+          Tide now · NOAA {stationName}
         </ThemedText>
       </View>
       {forecast.tidesError || !next ? (
@@ -122,7 +128,11 @@ export function TideCard({
       ) : (
         <>
           <ThemedText style={styles.statValue}>
-            {next.type === 'high' ? 'Rising' : 'Falling'}, {next.type} tide at {clock(next.time, forecast.utcOffset)}
+            {level != null ? `${height(level, units)} and ` : ''}
+            {next.type === 'high' ? 'rising' : 'falling'}
+          </ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            Next {next.type} tide {clock(next.time, forecast.utcOffset)}. NOAA predictions, heights above MLLW (average lowest tide).
           </ThemedText>
           {upcoming.map((t: TideEvent) => (
             <View key={t.time} style={styles.tideRow}>

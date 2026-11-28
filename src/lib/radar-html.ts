@@ -1,69 +1,72 @@
+import type { Spot } from '@/data/spots';
+import { NewsCss, RadarCss, SiteCss } from '@/lib/web-panels';
+
 /**
- * The Rain radar page shown in the Radar tab: a Leaflet map centered on the spot with a one-hour loop of
- * NOAA NEXRAD composite radar (public domain), served as map tiles by the Iowa Environmental Mesonet.
- * Same radar as the website's "Live radar" panel (radar.js in the site repo).
+ * The Radar and News pages in the Radar tab run the website's own scripts (radar.js, news.js) inside a WebView
+ * whose base address is saltcastflorida.com, so the app gets the same radar and news as the site:
+ * - Radar: NOAA NEXRAD 1-hour loop, about 2 hours of HRRR future radar (purple), GOES lightning, NWS warning boxes.
+ * - News: NWS/NHC alerts that open in place, Florida headlines that link to the outlet, Live from NOAA strip.
+ * Styles come from the site (src/lib/web-panels.ts, made by scripts/web-panels.py).
  */
-export function radarHtml(lat: number, lon: number, name: string): string {
-  const spot = JSON.stringify({ lat, lon, name });
+export const SiteBase = 'https://saltcastflorida.com/';
+
+// The site's dark theme, with iPhone system fonts.
+const Theme = `:root{--bg:#0E2A33;--surface:#11242B;--surface-2:#173039;--line:#244049;--ink:#E3EEF0;--muted:#8CA8B0;--accent:#4FC3CC;--accent-ink:#06232A;
+--go:#4CC07F;--fair:#E6AE3A;--nogo:#EE6B55;--f-display:-apple-system-condensed,"SF Pro Display",system-ui,sans-serif;--f-body:-apple-system,system-ui,sans-serif;
+--f-mono:ui-monospace,Menlo,monospace;color-scheme:dark}
+*{box-sizing:border-box}[hidden]{display:none!important}html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 var(--f-body);-webkit-tap-highlight-color:transparent}
+h1,h2,h3{font-family:var(--f-display);font-weight:600;line-height:1.05;margin:0;letter-spacing:.01em}`;
+
+function page(css: string, body: string) {
   return `<!doctype html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<style>
-html,body{margin:0;height:100%;background:#0E2A33;color:#EAF4F4;font:14px -apple-system,system-ui,sans-serif}
-body{display:flex;flex-direction:column}
-#map{flex:1;background:#16343E}
-.bar{padding:10px 12px;display:flex;flex-direction:column;gap:8px;background:#0E2A33}
-.row{display:flex;align-items:center;gap:10px}
-button{font:600 13px -apple-system,system-ui,sans-serif;color:#EAF4F4;background:#16343E;border:1px solid #2C4C56;border-radius:10px;min-height:40px;padding:0 14px}
-button.on{background:#3FC1C9;border-color:#3FC1C9;color:#0E2A33}
-#play{min-width:48px;font-size:15px}
-input[type=range]{flex:1;accent-color:#3FC1C9;height:32px}
-#time{font:12px ui-monospace,Menlo,monospace;color:#9FB8BE;min-width:13ch;text-align:right}
-.legend{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:11px;color:#9FB8BE;text-transform:uppercase}
-.legend i{display:inline-block;width:80px;height:8px;border-radius:4px;background:linear-gradient(90deg,#04e9e7,#019ff4,#02fd02,#01c501,#fdf802,#fd9500,#fd0000,#bc0000,#f800fd)}
-.note{font-size:12px;line-height:1.4;color:#9FB8BE}
-.note a{color:#3FC1C9}
-.msg{display:flex;height:100%;align-items:center;justify-content:center;padding:24px;text-align:center;color:#9FB8BE}
-.leaflet-container{font:11px -apple-system,system-ui,sans-serif}
-</style></head><body>
-<div id="map"><div class="msg">Loading radar…</div></div>
-<div class="bar">
- <div class="row"><button id="play" aria-label="Pause loop">❚❚</button><input id="rng" type="range" min="0" max="11" value="11" aria-label="Radar time"><span id="time">Latest</span></div>
- <div class="row"><button id="spot" class="on">My spot</button><button id="fl">All Florida</button><span class="legend"><span>Light</span><i></i><span>Severe</span></span></div>
- <div class="note">Rain and storms over the last hour, refreshed every 5 minutes. Radar shows rain, not lightning: if you hear thunder, head in. Data: NOAA NEXRAD via Iowa Environmental Mesonet. <a href="https://radar.weather.gov/">Full NWS radar</a></div>
-</div>
-<script>
-var S=${spot};
-var IEM="https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/";
-var OFFS=[55,50,45,40,35,30,25,20,15,10,5,0];
-var map,layers=[],frame=11,playing=true,hold=0,timer,validMs=null,bucket=Math.floor(Date.now()/3e5);
-function $(id){return document.getElementById(id);}
-function url(off){return IEM+(off?"nexrad-n0q-900913-m"+(off<10?"0":"")+off+"m":"nexrad-n0q-900913")+"/{z}/{x}/{y}.png?v="+bucket;}
-function label(i){var off=OFFS[i],base=validMs||Math.floor(Date.now()/3e5)*3e5,t=new Date(base-off*6e4);
- var hm=t.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",timeZone:"America/New_York"});return off?hm+" (-"+off+" min)":hm+" (latest)";}
-function show(i){frame=i;layers.forEach(function(l,k){l.setOpacity(k===i?.75:0);});$("rng").value=i;$("time").textContent=label(i);}
-function tick(){clearInterval(timer);$("play").textContent=playing?"❚❚":"▶";$("play").setAttribute("aria-label",playing?"Pause loop":"Play loop");
- if(!playing||document.hidden)return;timer=setInterval(function(){if(frame===11&&hold<4){hold++;return;}hold=0;show((frame+1)%12);},550);}
-function refresh(){bucket=Math.floor(Date.now()/3e5);layers.forEach(function(l,k){l.setUrl(url(OFFS[k]));});
- fetch("https://mesonet.agron.iastate.edu/data/gis/images/4326/USCOMP/n0q_0.json",{cache:"no-store"}).then(function(r){return r.json();})
-  .then(function(j){var t=Date.parse(j.meta&&j.meta.valid);if(t){validMs=t;show(frame);}}).catch(function(){});}
-function view(wide){$("spot").className=wide?"":"on";$("fl").className=wide?"on":"";if(wide)map.setView([27.8,-83.6],6);else map.setView([S.lat,S.lon],9);}
-function start(){
- $("map").innerHTML="";
- map=L.map("map",{zoomControl:false,minZoom:5,maxZoom:11,attributionControl:true}).setView([S.lat,S.lon],9);
- map.attributionControl.setPrefix(false);
- L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:11,attribution:'&copy; OpenStreetMap'}).addTo(map);
- layers=OFFS.map(function(off){return L.tileLayer(url(off),{opacity:0,maxZoom:11,maxNativeZoom:10,zIndex:5,attribution:off?"":"Radar: IEM / NOAA NEXRAD"}).addTo(map);});
- L.circleMarker([S.lat,S.lon],{radius:7,color:"#fff",weight:2,fillColor:"#0E7C86",fillOpacity:1,interactive:false}).addTo(map).bindTooltip(S.name);
- show(11);tick();refresh();setInterval(function(){if(!document.hidden)refresh();},3e5);
+<style>${Theme}\n${SiteCss}\n${css}</style></head><body>${body}</body></html>`;
 }
-$("play").onclick=function(){playing=!playing;tick();};
-$("rng").oninput=function(e){playing=false;show(+e.target.value);tick();};
-$("spot").onclick=function(){if(map)view(false);};
-$("fl").onclick=function(){if(map)view(true);};
-document.addEventListener("visibilitychange",function(){if(!document.hidden&&map)refresh();tick();});
-var s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js";
-s.onload=start;s.onerror=function(){$("map").innerHTML='<div class="msg">The radar couldn\\'t load. Check your connection and try again.</div>';};
-document.head.appendChild(s);
-</script></body></html>`;
+
+function spotJson(spot: Spot) {
+  return JSON.stringify({ id: spot.id, name: spot.name, lat: spot.lat, lon: spot.lon }).replace(/</g, '\\u003c');
+}
+
+export function radarHtml(spot: Spot): string {
+  const css = `${RadarCss}
+#detail{padding:8px 12px 12px}.d-head{display:none}
+.rdr{margin:0;padding:10px;border-radius:12px;box-shadow:none}
+.rdr-x{display:none}
+.rdr-map{height:calc(100vh - 330px)!important;min-height:280px}
+.ltg-banner{margin:0 0 10px}
+@media (max-width:600px){.rdr-map{height:calc(100vh - 330px)!important}}`;
+  const body = `<div id="detail"><div class="d-head"></div></div><button type="button" data-radar hidden></button>
+<script>
+var S=${spotJson(spot)};
+window.SC_STATE=function(){return {spot:S,water:"near"};};
+try{localStorage.setItem("fwf-radar","1");}catch(e){}
+// Open the radar panel if radar.js didn't already (when this page has no saved storage).
+setTimeout(function(){var p=document.getElementById("radar");if(!p||p.hidden){var b=document.querySelector("[data-radar]");if(b)b.click();}},1500);
+</script>
+<script src="/radar.js"></script>`;
+  return page(css, body);
+}
+
+const RegionName: Record<Spot['region'], string> = {
+  Atlantic: 'Atlantic Coast',
+  Gulf: 'Gulf Coast',
+  Panhandle: 'Panhandle',
+  Keys: 'Florida Keys',
+};
+
+export function newsHtml(spot: Spot): string {
+  const css = `${NewsCss}
+.news{margin:0;border:0;border-radius:0;padding:12px 14px 24px;background:var(--bg)}
+.news .fine{font-size:12px}`;
+  // news.js starts on the spot's coast (it reads the spot's region the way a town page does).
+  const pick = JSON.stringify({ id: 'app-spot', region: RegionName[spot.region], name: spot.name });
+  const body = `<section class="news" id="news"><div class="news-tabs" role="tablist" aria-label="Area"></div><div class="news-live"></div><div class="news-body"></div></section>
+<script>
+window.SALTCAST_SPOT="app-spot";
+window.SC_SPOTS=function(){return [${pick}];};
+window.SC_STATE=function(){return {spot:${pick}};};
+</script>
+<script src="/news.js"></script>`;
+  return page(css, body);
 }

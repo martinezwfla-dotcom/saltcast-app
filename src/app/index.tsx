@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { ActivityIndicator, Pressable, RefreshControl, Share, StyleSheet, View } from 'react-native';
 
 import { CatchOfTheWeek } from '@/components/catch';
+import { LightningBanner } from '@/components/lightning-banner';
 import { ForecastCharts } from '@/components/charts';
 import { Welcome } from '@/components/welcome';
 
@@ -162,6 +163,7 @@ export default function TodayScreen() {
             </Pressable>
           </Card>
 
+          <LightningBanner spot={spot} onRadar={() => router.navigate({ pathname: '/radar', params: { show: 'radar', at: String(Date.now()) } })} />
           <SafetyAlerts
             hours={forecast.hours.slice(index)}
             activityId={activityId}

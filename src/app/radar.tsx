@@ -8,27 +8,28 @@ import { WebView } from 'react-native-webview';
 import { ThemedText } from '@/components/themed-text';
 import { BottomTabInset, Colors, Spacing } from '@/constants/theme';
 import { getSpot } from '@/data/spots';
-import { radarHtml } from '@/lib/radar-html';
+import { newsHtml, radarHtml, SiteBase } from '@/lib/radar-html';
 import { useSettings } from '@/state/settings';
 
 export default function RadarScreen() {
   const { spotId } = useSettings();
   const spot = getSpot(spotId);
-  const [mode, setMode] = useState<'radar' | 'tropics'>('radar');
+  const [mode, setMode] = useState<Mode>('radar');
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   // The Today screen's safety card opens this tab straight to the hurricane tracker.
   const { show, at } = useLocalSearchParams<{ show?: string; at?: string }>();
   const [opened, setOpened] = useState<string>();
-  if (show === 'tropics' && at !== opened) {
+  // The lightning banner opens it straight to the radar.
+  if ((show === 'tropics' || show === 'radar' || show === 'news') && at !== opened) {
     setOpened(at);
-    if (mode !== 'tropics') {
-      setMode('tropics');
+    if (mode !== show) {
+      setMode(show);
       setLoading(true);
       setFailed(false);
     }
   }
-  const pick = (m: 'radar' | 'tropics') => {
+  const pick = (m: Mode) => {
     if (m === mode) return;
     setMode(m);
     setLoading(true);
@@ -38,12 +39,10 @@ export default function RadarScreen() {
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.screen}>
       <View style={styles.header}>
-        <ThemedText style={styles.title}>{mode === 'radar' ? 'Radar' : 'Hurricanes'}</ThemedText>
-        <ThemedText themeColor="textSecondary">
-          {mode === 'radar' ? `Live rain and storms near ${spot.name}` : 'Storms, the forecast cone and when they reach Florida'}
-        </ThemedText>
+        <ThemedText style={styles.title}>{Modes[mode].title}</ThemedText>
+        <ThemedText themeColor="textSecondary">{Modes[mode].sub(spot.name)}</ThemedText>
         <View style={styles.segment}>
-          {(['radar', 'tropics'] as const).map((m) => (
+          {(['radar', 'news', 'tropics'] as const).map((m) => (
             <Pressable
               key={m}
               onPress={() => pick(m)}
@@ -51,7 +50,7 @@ export default function RadarScreen() {
               accessibilityState={{ selected: mode === m }}
               style={[styles.segItem, mode === m && styles.segOn]}>
               <ThemedText type="smallBold" style={{ color: mode === m ? Colors.dark.background : Colors.dark.text }}>
-                {m === 'radar' ? 'Rain radar' : 'Hurricane tracker'}
+                {Modes[m].label}
               </ThemedText>
             </Pressable>
           ))}
@@ -64,19 +63,24 @@ export default function RadarScreen() {
           </ThemedText>
         ) : (
           <WebView
-            key={mode === 'radar' ? spot.id : 'tropics'}
+            key={mode === 'tropics' ? 'tropics' : `${mode}:${spot.id}`}
             source={
               mode === 'radar'
-                ? { html: radarHtml(spot.lat, spot.lon, spot.name), baseUrl: RadarBase }
-                : { uri: TropicsUrl }
+                ? { html: radarHtml(spot), baseUrl: SiteBase }
+                : mode === 'news'
+                  ? { html: newsHtml(spot), baseUrl: SiteBase }
+                  : { uri: TropicsUrl }
             }
             injectedJavaScript={mode === 'tropics' ? HideSiteChrome : undefined}
             onShouldStartLoadWithRequest={(req) => {
-              const home = mode === 'radar' ? RadarBase : TropicsUrl;
-              if (!req.isTopFrame || req.url.startsWith(home) || req.url === 'about:blank') return true;
-              // Links out of the radar or tracker (NWS, NHC, satellite pages) open in the browser.
+              if (!req.isTopFrame || req.url === 'about:blank') return true;
+              // The page itself (and in-page # links) stays; links out (news stories, NWS, NHC, NOAA) open in the browser.
+              if (mode === 'tropics' ? req.url.startsWith(TropicsUrl) : req.url === SiteBase || req.url.startsWith(SiteBase + '#')) return true;
               WebBrowser.openBrowserAsync(req.url);
               return false;
+            }}
+            onOpenWindow={(e) => {
+              WebBrowser.openBrowserAsync(e.nativeEvent.targetUrl);
             }}
             style={styles.web}
             onLoadEnd={() => setLoading(false)}
@@ -91,8 +95,13 @@ export default function RadarScreen() {
   );
 }
 
-/** Base address for the radar page, so its map tile requests come from the Saltcast site. */
-const RadarBase = 'https://saltcastflorida.com/';
+type Mode = 'radar' | 'news' | 'tropics';
+
+const Modes: Record<Mode, { label: string; title: string; sub: (name: string) => string }> = {
+  radar: { label: 'Radar', title: 'Radar', sub: (n) => `Rain, lightning and storm warnings near ${n}` },
+  news: { label: 'Weather news', title: 'Florida Weather News', sub: () => 'NWS alerts and Florida weather headlines' },
+  tropics: { label: 'Hurricanes', title: 'Hurricanes', sub: () => 'Storms, the forecast cone and when they reach Florida' },
+};
 
 /** The website's hurricane tracker: NHC storms and cone, Florida timing, NWS alerts, outlooks and satellite. */
 const TropicsUrl = 'https://saltcastflorida.com/tropics/';
