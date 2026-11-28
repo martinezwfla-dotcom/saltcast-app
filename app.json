@@ -2,7 +2,7 @@
   "expo": {
     "name": "Saltcast",
     "slug": "saltcast-florida",
-    "version": "1.0.1",
+    "version": "1.3.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "saltcast",
@@ -42,9 +42,23 @@
       "expo-web-browser",
       "expo-background-task",
       [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Saltcast uses your location only to show the forecast nearest you. It is not saved or used to track you."
+        }
+      ],
+      [
         "expo-notifications",
         {
           "color": "#0E2A33"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Saltcast lets you pick a photo to send in for Catch of the Week. Only the photo you choose is sent.",
+          "cameraPermission": false,
+          "microphonePermission": false
         }
       ]
     ],

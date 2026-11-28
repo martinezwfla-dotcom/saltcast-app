@@ -3,11 +3,13 @@ import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
 
+import { NearMeButton } from '@/components/near-me-button';
 import { ThemedText } from '@/components/themed-text';
-import { Card, Header, Icon, Screen } from '@/components/ui';
+import { Card, Header, Icon, Screen, WebsiteUrl } from '@/components/ui';
 import { Colors, Spacing } from '@/constants/theme';
 import { Activities } from '@/data/activities';
 import { requestAlertPermission } from '@/lib/alerts';
+import { ChangeAlertModes, syncChangeAlerts } from '@/lib/push';
 import { makeCustomSpot, Regions, searchPlaces, Spots, type Place, type Spot } from '@/data/spots';
 import type { Units } from '@/lib/format';
 import { useSettings } from '@/state/settings';
@@ -206,6 +208,90 @@ function GoAlerts() {
   );
 }
 
+function ChangeAlerts() {
+  const { changeAlerts, setChangeAlerts, changeAlertMode, setChangeAlertMode, favorites } = useSettings();
+  const [denied, setDenied] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  async function toggle(on: boolean) {
+    setFailed(false);
+    if (on) {
+      const ok = await requestAlertPermission();
+      setDenied(!ok);
+      if (!ok) return;
+      // Check the server can be reached before showing the switch as on.
+      const sent = await syncChangeAlerts(true, []).catch(() => false);
+      if (!sent) {
+        setFailed(true);
+        return;
+      }
+    }
+    setChangeAlerts(on);
+  }
+
+  return (
+    <Card style={{ gap: Spacing.two }}>
+      <View style={styles.row}>
+        <View style={{ flex: 1 }}>
+          <ThemedText type="smallBold">Weather change alerts</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            Improving, changing or severe weather at your favorite spots, checked every 15 minutes.
+          </ThemedText>
+        </View>
+        <Switch
+          value={changeAlerts}
+          onValueChange={toggle}
+          trackColor={{ true: C.accent, false: C.backgroundElement }}
+          accessibilityLabel="Weather change alerts"
+        />
+      </View>
+      {denied ? (
+        <Pressable onPress={() => Linking.openSettings()}>
+          <ThemedText type="small" themeColor="accent">
+            Notifications are off for Saltcast. Tap to turn them on in Settings.
+          </ThemedText>
+        </Pressable>
+      ) : null}
+      {failed ? (
+        <ThemedText type="small" themeColor="textSecondary">
+          Couldn&apos;t reach Saltcast to turn on alerts. Check your connection and try again.
+        </ThemedText>
+      ) : null}
+      {changeAlerts ? (
+        <>
+          <View style={styles.segment}>
+            {ChangeAlertModes.map((m) => {
+              const selected = m.value === changeAlertMode;
+              return (
+                <Pressable
+                  key={m.value}
+                  onPress={() => setChangeAlertMode(m.value)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  style={[styles.segmentItem, selected && styles.segmentSelected]}>
+                  <ThemedText type="smallBold" style={{ color: selected ? C.background : C.text, textAlign: 'center' }}>
+                    {m.label}
+                  </ThemedText>
+                </Pressable>
+              );
+            })}
+          </View>
+          <ThemedText type="small" themeColor="textSecondary">
+            {ChangeAlertModes.find((m) => m.value === changeAlertMode)?.desc}
+          </ThemedText>
+        </>
+      ) : null}
+      {changeAlerts ? (
+        <ThemedText type="small" themeColor="textSecondary">
+          {favorites.length
+            ? 'No alerts between 9pm and 6am except warnings. Always check forecasts before heading out.'
+            : 'Tap the star on a spot to add it to your favorites. Alerts are for favorites only.'}
+        </ThemedText>
+      ) : null}
+    </Card>
+  );
+}
+
 function UnitsPicker() {
   const { units, setUnits } = useSettings();
   const options: { value: Units; label: string }[] = [
@@ -266,6 +352,7 @@ export default function SpotsScreen() {
         </ThemedText>
       ) : null}
 
+      <NearMeButton />
       <PlaceSearch />
 
       {recent ? (
@@ -292,6 +379,7 @@ export default function SpotsScreen() {
       ) : null}
 
       <GoAlerts />
+      <ChangeAlerts />
 
       {Regions.map((region) => {
         const list = Spots.filter((s) => s.region === region && !hidden.includes(s.id));
@@ -341,7 +429,7 @@ export default function SpotsScreen() {
 
       <ThemedText type="smallBold">About</ThemedText>
       <Card style={styles.list}>
-        <Pressable style={styles.row} onPress={() => WebBrowser.openBrowserAsync('https://saltcastflorida.com')}>
+        <Pressable style={styles.row} onPress={() => WebBrowser.openBrowserAsync(WebsiteUrl)}>
           <ThemedText style={{ flex: 1 }}>saltcastflorida.com</ThemedText>
           <Icon name="chevron.right" size={14} />
         </Pressable>

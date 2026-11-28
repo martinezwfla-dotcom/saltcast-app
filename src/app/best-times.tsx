@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
+import { TideFishingCard, WaterPicker } from '@/components/extras';
 import { ThemedText } from '@/components/themed-text';
 import { ActivityPicker, Card, Disclaimer, Header, Icon, Screen, VerdictColor, VerdictPill, WebsiteButton } from '@/components/ui';
 import { Colors, Spacing } from '@/constants/theme';
@@ -9,23 +10,27 @@ import { getSpot } from '@/data/spots';
 import { useForecast } from '@/hooks/use-forecast';
 import { useNow } from '@/hooks/use-now';
 import { findBestWindows } from '@/lib/best-times';
+import { useTropical } from '@/lib/tropical';
+import { waterFor } from '@/lib/forecast';
 import { clock, compass, height, timeRange, windSpeed } from '@/lib/format';
 import { useSettings } from '@/state/settings';
 
 export default function BestTimesScreen() {
-  const { activityId, spotId, units, setActivity } = useSettings();
+  const { activityId, spotId, units, setActivity, water: chosenWater, setWater } = useSettings();
+  const water = waterFor(chosenWater, activityId);
   const activity = getActivity(activityId);
-  const spot = getSpot(spotId);
-  const { forecast, loading, error, refresh } = useForecast(spotId);
-  const [open, setOpen] = useState<number>();
   const now = useNow();
+  const { spot } = useTropical(getSpot(spotId), now);
+  const { forecast, loading, error, refresh } = useForecast(spotId, water);
+  const [open, setOpen] = useState<number>();
 
   const windows = forecast ? findBestWindows(forecast, activity, spot, now) : [];
 
   return (
     <Screen refreshControl={<RefreshControl refreshing={loading && !!forecast} onRefresh={refresh} tintColor={Colors.dark.accent} />}>
-      <Header title="Best times" subtitle={`Next 48 hours at ${spot.name}`} />
+      <Header title="Best times" subtitle={`Next 72 hours at ${spot.name}`} />
       <ActivityPicker value={activityId} onChange={setActivity} />
+      <WaterPicker value={chosenWater} onChange={setWater} activityId={activityId} />
 
       {!forecast ? (
         <Card style={styles.center}>
@@ -35,7 +40,7 @@ export default function BestTimesScreen() {
         <Card>
           <ThemedText style={styles.title}>No good windows</ThemedText>
           <ThemedText themeColor="textSecondary">
-            Conditions don&apos;t look right for {activity.name.toLowerCase()} at {spot.name} in daylight over the next 48 hours.
+            Conditions don&apos;t look right for {activity.name.toLowerCase()} at {spot.name} in daylight over the next 72 hours.
             Try another spot or activity.
           </ThemedText>
         </Card>
@@ -76,6 +81,8 @@ export default function BestTimesScreen() {
           );
         })
       )}
+
+      {forecast && activityId === 'fishing' ? <TideFishingCard forecast={forecast} spot={spot} now={now} /> : null}
 
       <WebsiteButton />
       <Disclaimer />

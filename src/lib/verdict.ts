@@ -1,6 +1,7 @@
 import type { Activity } from '@/data/activities';
 import type { Spot } from '@/data/spots';
 import type { HourForecast } from '@/lib/forecast';
+import { tropicalAt } from '@/lib/tropical';
 
 export type Verdict = 'go' | 'maybe' | 'nogo';
 
@@ -70,7 +71,9 @@ export function rateHour(hour: HourForecast, activity: Activity, spot: Spot): Ho
       reason: `Gusts to ${Math.round(hour.gusts)} kt`,
     });
     // Gusts far above the steady wind make for a bumpy, unpredictable day.
-    if (hour.wind != null && hour.gusts > r.wind.good && hour.gusts - hour.wind >= 10) {
+    // Not on Inshore: there the wind is the town's, and over land the model's gusts run far above the
+    // steady wind even when the sound is calm.
+    if (!hour.sheltered && hour.wind != null && hour.gusts > r.wind.good && hour.gusts - hour.wind >= 10) {
       checks.push({ name: 'gusty', value: 0.5, reason: `Gusty, ${Math.round(hour.gusts - hour.wind)} kt above the wind` });
     }
   }
@@ -110,6 +113,16 @@ export function rateHour(hour: HourForecast, activity: Activity, spot: Spot): Ho
   } else if (hour.precipChance != null && hour.precipChance >= 60) {
     worst = Math.min(worst, 0.4);
     reasons.push(`${hour.precipChance}% chance of rain`);
+  }
+
+  // NWS tropical warnings at this spot force No Go; watches cap the hour at Not ideal (same as the website).
+  const trop = tropicalAt(spot, hour.time);
+  if (trop?.level === 'warn') {
+    worst = -1;
+    reasons.unshift(`${trop.event} in effect`);
+  } else if (trop) {
+    worst = Math.min(worst, 0.4);
+    reasons.unshift(`${trop.event} in effect`);
   }
 
   const verdict: Verdict = worst >= 0.75 ? 'go' : worst >= 0 ? 'maybe' : 'nogo';

@@ -1,4 +1,4 @@
-import type { Spot } from '@/data/spots';
+import type { Spot, TideStation } from '@/data/spots';
 
 /** One forecast hour. Wind in knots, waves in feet, temperatures in °F. */
 export type HourForecast = {
@@ -7,6 +7,11 @@ export type HourForecast = {
   airTemp: number | null;
   precipChance: number | null;
   weatherCode: number | null;
+  /** Cloud cover, percent. Missing in forecasts cached by older versions. */
+  cloudCover?: number | null;
+  cloudLow?: number | null;
+  cloudMid?: number | null;
+  cloudHigh?: number | null;
   wind: number | null;
   windDir: number | null;
   gusts: number | null;
@@ -17,18 +22,41 @@ export type HourForecast = {
   swellDir: number | null;
   swellPeriod: number | null;
   waterTemp: number | null;
+  /** Inshore (bay, sound, ICW) hour: wind is the town's, so the model's gust spread over land is ignored. */
+  sheltered?: boolean;
 };
 
 export type TideEvent = { time: number; height: number; type: 'high' | 'low' };
 
+/**
+ * Which water the forecast is for, as on the website:
+ * inshore = bays, ICW and harbors (chop from the wind, no ocean swell),
+ * near = the beach out to about 20 nm (the default), off = 20 to 60 nm out.
+ */
+export type Water = 'inshore' | 'near' | 'off';
+
+export const WaterLabels: Record<Water, { label: string; desc: string }> = {
+  inshore: { label: 'Inshore', desc: 'Bays, ICW, harbors' },
+  near: { label: 'Nearshore', desc: 'Beach to 20 nm' },
+  off: { label: 'Offshore', desc: '20 to 60 nm' },
+};
+
+/** Surf forecasts only make sense at the beach. */
+export function waterFor(water: Water, activityId: string): Water {
+  return activityId === 'surfing' ? 'near' : water;
+}
+
 export type Forecast = {
   spotId: string;
+  water: Water;
   fetchedAt: number;
   /** Offset of the spot's local time from UTC, in seconds. */
   utcOffset: number;
   hours: HourForecast[];
   tides: TideEvent[];
   tidesError?: string;
+  /** The NOAA station the tides came from (the spot's own, or its backup). */
+  tideStation?: { id: string; name: string };
 };
 
 const FeetPerMeter = 3.28084;
@@ -52,10 +80,56 @@ function localToUtc(local: string, utcOffset: number) {
   return Date.parse(`${local}:00Z`) - utcOffset * 1000;
 }
 
-function fetchWeather(spot: Spot) {
+type Point = { lat: number; lon: number; timezone: string };
+
+/**
+ * Where to ask for the forecast. Offshore uses a point about 30 nm out along the way the
+ * beach faces, with the land time zone named (far out, "auto" can pick a nautical zone).
+ */
+function forecastPoint(spot: Spot, water: Water): Point {
+  if (water === 'inshore') {
+    // Inside the bay or sound, behind the beach: the spot's own inshore point, or about 6 miles back from the
+    // offshore point toward land (searched places use the town itself). Same idea as the website.
+    if (spot.inshore) return { ...spot.inshore, timezone: 'auto' };
+    const back = ((spot.facing + 180) * Math.PI) / 180;
+    return {
+      lat: +(spot.lat + 0.09 * Math.cos(back)).toFixed(3),
+      lon: +(spot.lon + (0.09 * Math.sin(back)) / Math.cos((spot.lat * Math.PI) / 180)).toFixed(3),
+      timezone: 'auto',
+    };
+  }
+  if (water !== 'off') return { lat: spot.lat, lon: spot.lon, timezone: 'auto' };
+  const rad = (spot.facing * Math.PI) / 180;
+  const lat = spot.lat + 0.5 * Math.cos(rad);
+  const lon = spot.lon + (0.5 * Math.sin(rad)) / Math.cos((spot.lat * Math.PI) / 180);
+  return {
+    lat: +lat.toFixed(3),
+    lon: +lon.toFixed(3),
+    timezone: spot.lon < -85.3 ? 'America/Chicago' : 'America/New_York',
+  };
+}
+
+/**
+ * Wind chop in feet in a sheltered bay or sound: Shore Protection Manual shallow-water formula over about
+ * 2.5 miles of open water 5 ft deep (Gasparilla Sound, Lemon Bay, the ICW). Same as the website.
+ * The old deep-water 5-mile version gave about 1.9 ft at 20 kt, far rougher than these sounds get.
+ */
+export function chopFeet(kt: number | null) {
+  if (kt == null) return null;
+  const u = Math.max(kt, 1) * 0.5144;
+  const ua = 0.71 * Math.pow(u, 1.23);
+  const g = 9.81;
+  const fetchMeters = 4000;
+  const depth = 1.5;
+  const k = (ua * ua) / g;
+  const a = Math.tanh(0.53 * Math.pow((g * depth) / (ua * ua), 0.75));
+  return Math.min(0.283 * k * a * Math.tanh((0.00565 * Math.sqrt((g * fetchMeters) / (ua * ua))) / a) * FeetPerMeter, 3);
+}
+
+function fetchWeather(p: Point, days: number) {
   const params = new URLSearchParams({
-    latitude: String(spot.lat),
-    longitude: String(spot.lon),
+    latitude: String(p.lat),
+    longitude: String(p.lon),
     hourly: [
       'temperature_2m',
       'precipitation_probability',
@@ -64,19 +138,23 @@ function fetchWeather(spot: Spot) {
       'wind_direction_10m',
       'wind_gusts_10m',
       'is_day',
+      'cloud_cover',
+      'cloud_cover_low',
+      'cloud_cover_mid',
+      'cloud_cover_high',
     ].join(','),
     wind_speed_unit: 'kn',
     temperature_unit: 'fahrenheit',
-    timezone: 'auto',
-    forecast_days: '7',
+    timezone: p.timezone,
+    forecast_days: String(days),
   });
   return getJson<OpenMeteoResponse>(`https://api.open-meteo.com/v1/forecast?${params}`);
 }
 
-function fetchMarine(spot: Spot) {
+function fetchMarine(p: Point, days: number) {
   const params = new URLSearchParams({
-    latitude: String(spot.lat),
-    longitude: String(spot.lon),
+    latitude: String(p.lat),
+    longitude: String(p.lon),
     hourly: [
       'wave_height',
       'wave_direction',
@@ -86,8 +164,8 @@ function fetchMarine(spot: Spot) {
       'swell_wave_period',
       'sea_surface_temperature',
     ].join(','),
-    timezone: 'auto',
-    forecast_days: '7',
+    timezone: p.timezone,
+    forecast_days: String(days),
   });
   return getJson<OpenMeteoResponse>(`https://marine-api.open-meteo.com/v1/marine?${params}`);
 }
@@ -102,12 +180,12 @@ function yyyymmdd(d: Date) {
   return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}`;
 }
 
-async function fetchTides(spot: Spot): Promise<TideEvent[]> {
+async function fetchStationTides(stationId: string): Promise<TideEvent[]> {
   // Start a day back so "last tide" is known early in the morning.
   const begin = new Date(Date.now() - 24 * 3600 * 1000);
   const params = new URLSearchParams({
     product: 'predictions',
-    station: spot.tideStation.id,
+    station: stationId,
     datum: 'MLLW',
     units: 'english',
     time_zone: 'gmt',
@@ -128,12 +206,83 @@ async function fetchTides(spot: Spot): Promise<TideEvent[]> {
   }));
 }
 
-export async function fetchForecast(spot: Spot): Promise<Forecast> {
-  const [weather, marine, tides] = await Promise.all([
-    fetchWeather(spot),
-    fetchMarine(spot),
+/** NOAA tide prediction stations in and around Florida, [id, name, lat, lon]; the website refreshes this list from NOAA on every deploy. */
+type StationRow = [string, string, number, number];
+let stationList: Promise<StationRow[]> | undefined;
+function tideStations(): Promise<StationRow[]> {
+  stationList ??= getJson<{ stations?: StationRow[] }>('https://saltcastflorida.com/tide-stations.json')
+    .then((j) => (Array.isArray(j.stations) ? j.stations : []))
+    .catch(() => {
+      stationList = undefined;
+      return [];
+    });
+  return stationList;
+}
+
+/** The NOAA station nearest a point, if one is within 15 miles (same rule as the website). */
+async function nearestStation(lat: number, lon: number): Promise<{ id: string; name: string } | undefined> {
+  const k = Math.cos((lat * Math.PI) / 180);
+  let best: StationRow | undefined;
+  let bd = Infinity;
+  for (const s of await tideStations()) {
+    const d = (s[2] - lat) ** 2 + ((s[3] - lon) * k) ** 2;
+    if (d < bd) {
+      bd = d;
+      best = s;
+    }
+  }
+  return best && Math.sqrt(bd) * 69 <= 15 ? { id: best[0], name: best[1] } : undefined;
+}
+
+/**
+ * The station a spot's tides come from. The 20 Saltcast spots have their own; a searched place uses the
+ * NOAA station nearest the town (within 15 miles), with the nearest Saltcast spot's station as the backup.
+ */
+async function stationFor(spot: Spot): Promise<TideStation> {
+  if (!spot.custom) return spot.tideStation;
+  const town = spot.inshore ?? spot;
+  const near = await nearestStation(town.lat, town.lon);
+  if (!near || near.id === spot.tideStation.id) return spot.tideStation;
+  const { backup: _, ...borrowed } = spot.tideStation;
+  return { ...near, backup: borrowed };
+}
+
+/** Tides from the spot's own NOAA station, or from its backup station if that one has no predictions. */
+async function fetchTides(spot: Spot): Promise<{ tides: TideEvent[]; station: { id: string; name: string } }> {
+  const { backup, ...own } = await stationFor(spot);
+  try {
+    const tides = await fetchStationTides(own.id);
+    if (tides.length || !backup) return { tides, station: own };
+  } catch (e) {
+    if (!backup) throw e;
+  }
+  return { tides: await fetchStationTides(backup.id), station: backup };
+}
+
+/** Asks for 10 days; if the marine service won't give that many, 8; offshore falls back to the automatic time zone. */
+async function fetchWeatherAndMarine(spot: Spot, water: Water) {
+  const p = forecastPoint(spot, water);
+  const tries: [Point, number][] = [
+    [p, 10],
+    [p, 8],
+  ];
+  if (p.timezone !== 'auto') tries.push([{ ...p, timezone: 'auto' }, 8]);
+  let last: unknown;
+  for (const [point, days] of tries) {
+    try {
+      return await Promise.all([fetchWeather(point, days), fetchMarine(point, days)]);
+    } catch (e) {
+      last = e;
+    }
+  }
+  throw last;
+}
+
+export async function fetchForecast(spot: Spot, water: Water = 'near'): Promise<Forecast> {
+  const [[weather, marine], tides] = await Promise.all([
+    fetchWeatherAndMarine(spot, water),
     fetchTides(spot).then(
-      (t) => ({ ok: true as const, tides: t }),
+      (t) => ({ ok: true as const, tides: t.tides, station: t.station }),
       (e: Error) => ({ ok: false as const, error: e.message }),
     ),
   ]);
@@ -155,6 +304,10 @@ export async function fetchForecast(spot: Spot): Promise<Forecast> {
       airTemp: w.temperature_2m?.[i] ?? null,
       precipChance: w.precipitation_probability?.[i] ?? null,
       weatherCode: w.weather_code?.[i] ?? null,
+      cloudCover: w.cloud_cover?.[i] ?? null,
+      cloudLow: w.cloud_cover_low?.[i] ?? null,
+      cloudMid: w.cloud_cover_mid?.[i] ?? null,
+      cloudHigh: w.cloud_cover_high?.[i] ?? null,
       wind: w.wind_speed_10m?.[i] ?? null,
       windDir: w.wind_direction_10m?.[i] ?? null,
       gusts: w.wind_gusts_10m?.[i] ?? null,
@@ -168,13 +321,28 @@ export async function fetchForecast(spot: Spot): Promise<Forecast> {
     };
   });
 
+  // Inshore: protected water, so the waves are wind chop and there is no ocean swell.
+  if (water === 'inshore') {
+    for (const h of hours) {
+      h.waveHeight = chopFeet(h.wind);
+      h.sheltered = true;
+      h.waveDir = h.windDir;
+      h.wavePeriod = null;
+      h.swellHeight = null;
+      h.swellDir = null;
+      h.swellPeriod = null;
+    }
+  }
+
   return {
     spotId: spot.id,
+    water,
     fetchedAt: Date.now(),
     utcOffset: offset,
     hours,
     tides: tides.ok ? tides.tides : [],
     tidesError: tides.ok ? undefined : tides.error,
+    tideStation: tides.ok ? tides.station : undefined,
   };
 }
 
@@ -182,4 +350,23 @@ export async function fetchForecast(spot: Spot): Promise<Forecast> {
 export function currentHourIndex(forecast: Forecast, now: number) {
   const i = forecast.hours.findIndex((h) => h.time + 3600 * 1000 > now);
   return i === -1 ? forecast.hours.length - 1 : i;
+}
+
+/**
+ * How cloudy the sky looks, 0 to 100: low and mid clouds count fully, thin high cirrus counts 40%
+ * (it still looks sunny). Falls back to total cloud cover, then the weather code. Same as the website.
+ */
+export function effectiveCloud(h: HourForecast): number | null {
+  if (h.cloudLow != null || h.cloudMid != null || h.cloudHigh != null) {
+    return Math.max(h.cloudLow ?? 0, h.cloudMid ?? 0, 0.4 * (h.cloudHigh ?? 0));
+  }
+  if (h.cloudCover != null) return h.cloudCover;
+  const code = h.weatherCode;
+  return code == null ? null : code === 0 ? 5 : code === 1 ? 25 : code === 2 ? 50 : 95;
+}
+
+/** A rain weather code with a real (35%+) chance of rain, so a stray model drizzle code doesn't count. */
+export function isWetHour(h: HourForecast) {
+  const code = h.weatherCode;
+  return code != null && code >= 51 && code <= 82 && (h.precipChance == null || h.precipChance >= 35);
 }

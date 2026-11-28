@@ -14,7 +14,7 @@ export type Window = {
 const MaxWindowHours = 6;
 
 /**
- * Finds the best daylight windows in the next 48 hours. A window is a run of
+ * Finds the best daylight windows in the next 72 hours. A window is a run of
  * daylight hours that share the same verdict, at least 2 and at most 6 hours long.
  */
 export function findBestWindows(
@@ -25,7 +25,7 @@ export function findBestWindows(
   limit = 4,
 ): Window[] {
   const first = currentHourIndex(forecast, now);
-  const hours = forecast.hours.slice(first, first + 48);
+  const hours = forecast.hours.slice(first, first + 72);
   const rated = hours.map((hour) => ({ hour, rating: rateHour(hour, activity, spot) }));
 
   const windows: Window[] = [];
