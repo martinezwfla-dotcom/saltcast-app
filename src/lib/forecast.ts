@@ -55,6 +55,8 @@ export type Forecast = {
   hours: HourForecast[];
   tides: TideEvent[];
   tidesError?: string;
+  /** The NOAA station the tides came from (the spot's own, or its backup). */
+  tideStation?: { id: string; name: string };
 };
 
 const FeetPerMeter = 3.28084;
@@ -178,12 +180,12 @@ function yyyymmdd(d: Date) {
   return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}`;
 }
 
-async function fetchTides(spot: Spot): Promise<TideEvent[]> {
+async function fetchStationTides(stationId: string): Promise<TideEvent[]> {
   // Start a day back so "last tide" is known early in the morning.
   const begin = new Date(Date.now() - 24 * 3600 * 1000);
   const params = new URLSearchParams({
     product: 'predictions',
-    station: spot.tideStation.id,
+    station: stationId,
     datum: 'MLLW',
     units: 'english',
     time_zone: 'gmt',
@@ -202,6 +204,18 @@ async function fetchTides(spot: Spot): Promise<TideEvent[]> {
     height: Number(p.v),
     type: p.type === 'H' ? 'high' : 'low',
   }));
+}
+
+/** Tides from the spot's own NOAA station, or from its backup station if that one has no predictions. */
+async function fetchTides(spot: Spot): Promise<{ tides: TideEvent[]; station: { id: string; name: string } }> {
+  const { backup, ...own } = spot.tideStation;
+  try {
+    const tides = await fetchStationTides(own.id);
+    if (tides.length || !backup) return { tides, station: own };
+  } catch (e) {
+    if (!backup) throw e;
+  }
+  return { tides: await fetchStationTides(backup.id), station: backup };
 }
 
 /** Asks for 10 days; if the marine service won't give that many, 8; offshore falls back to the automatic time zone. */
@@ -227,7 +241,7 @@ export async function fetchForecast(spot: Spot, water: Water = 'near'): Promise<
   const [[weather, marine], tides] = await Promise.all([
     fetchWeatherAndMarine(spot, water),
     fetchTides(spot).then(
-      (t) => ({ ok: true as const, tides: t }),
+      (t) => ({ ok: true as const, tides: t.tides, station: t.station }),
       (e: Error) => ({ ok: false as const, error: e.message }),
     ),
   ]);
@@ -287,6 +301,7 @@ export async function fetchForecast(spot: Spot, water: Water = 'near'): Promise<
     hours,
     tides: tides.ok ? tides.tides : [],
     tidesError: tides.ok ? undefined : tides.error,
+    tideStation: tides.ok ? tides.station : undefined,
   };
 }
 

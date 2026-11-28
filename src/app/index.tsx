@@ -172,7 +172,7 @@ export default function TodayScreen() {
           <LocalCard spot={spot} activityId={activityId} />
           <ConditionsGrid hour={hour} spot={spot} units={units} />
           <BuoyCard spot={spot} water={water} units={units} />
-          <TideCard forecast={forecast} units={units} stationName={spot.tideStation.name} now={now} />
+          <TideCard forecast={forecast} units={units} stationName={forecast.tideStation?.name ?? spot.tideStation.name} now={now} />
 
           <ThemedText type="smallBold">Next 72 hours</ThemedText>
           <HourlyStrip

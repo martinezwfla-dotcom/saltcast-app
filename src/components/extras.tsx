@@ -9,7 +9,7 @@ import { Colors, Spacing } from '@/constants/theme';
 import type { ActivityId } from '@/data/activities';
 import { nearestArea, type LocalLink } from '@/data/local';
 import type { Spot } from '@/data/spots';
-import { loadStations, pickStations, type Station } from '@/lib/buoys';
+import { loadStations, pickStations, stationKind, stationLabel, type Station } from '@/lib/buoys';
 import { WaterLabels, type Forecast, type Water } from '@/lib/forecast';
 import { clock, compass, dayLabel, height, temperature, windSpeed, type Units } from '@/lib/format';
 import { tideFishing } from '@/lib/tide-fishing';
@@ -100,9 +100,10 @@ export function BuoyCard({ spot, water, units }: { spot: Spot; water: Water; uni
             style={styles.station}>
             <View style={{ flex: 1, gap: 2 }}>
               <ThemedText type="smallBold" themeColor="accent">
-                {s.buoy ? 'Buoy' : 'Station'} {s.id}
+                {stationLabel(s)}
               </ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
+                {stationKind(s.id) ? `${stationKind(s.id)} station · ` : ''}
                 {Math.round(s.miles)} mi away · {ago(s.time)}
               </ThemedText>
             </View>
