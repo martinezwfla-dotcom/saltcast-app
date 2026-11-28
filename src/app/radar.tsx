@@ -8,6 +8,7 @@ import { WebView } from 'react-native-webview';
 import { ThemedText } from '@/components/themed-text';
 import { BottomTabInset, Colors, Spacing } from '@/constants/theme';
 import { getSpot } from '@/data/spots';
+import { radarHtml } from '@/lib/radar-html';
 import { useSettings } from '@/state/settings';
 
 export default function RadarScreen() {
@@ -33,25 +34,6 @@ export default function RadarScreen() {
     setLoading(true);
     setFailed(false);
   };
-
-  const params = new URLSearchParams({
-    lat: String(spot.lat),
-    lon: String(spot.lon),
-    detailLat: String(spot.lat),
-    detailLon: String(spot.lon),
-    zoom: '7',
-    level: 'surface',
-    overlay: 'radar',
-    product: 'radar',
-    menu: '',
-    message: 'true',
-    marker: 'true',
-    type: 'map',
-    location: 'coordinates',
-    metricWind: 'kt',
-    metricTemp: '°F',
-    radarRange: '-1',
-  });
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.screen}>
@@ -83,11 +65,16 @@ export default function RadarScreen() {
         ) : (
           <WebView
             key={mode === 'radar' ? spot.id : 'tropics'}
-            source={{ uri: mode === 'radar' ? `https://embed.windy.com/embed.html?${params}` : TropicsUrl }}
+            source={
+              mode === 'radar'
+                ? { html: radarHtml(spot.lat, spot.lon, spot.name), baseUrl: RadarBase }
+                : { uri: TropicsUrl }
+            }
             injectedJavaScript={mode === 'tropics' ? HideSiteChrome : undefined}
             onShouldStartLoadWithRequest={(req) => {
-              if (mode === 'radar' || !req.isTopFrame || req.url.startsWith(TropicsUrl) || req.url === 'about:blank') return true;
-              // Links out of the tracker (NHC, NWS, satellite pages) open in the browser.
+              const home = mode === 'radar' ? RadarBase : TropicsUrl;
+              if (!req.isTopFrame || req.url.startsWith(home) || req.url === 'about:blank') return true;
+              // Links out of the radar or tracker (NWS, NHC, satellite pages) open in the browser.
               WebBrowser.openBrowserAsync(req.url);
               return false;
             }}
@@ -103,6 +90,9 @@ export default function RadarScreen() {
     </SafeAreaView>
   );
 }
+
+/** Base address for the radar page, so its map tile requests come from the Saltcast site. */
+const RadarBase = 'https://saltcastflorida.com/';
 
 /** The website's hurricane tracker: NHC storms and cone, Florida timing, NWS alerts, outlooks and satellite. */
 const TropicsUrl = 'https://saltcastflorida.com/tropics/';
