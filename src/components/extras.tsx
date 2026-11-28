@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
+import { NearbyPanel, nearbyLabel } from '@/components/nearby';
 import { Card, Icon, VerdictPill } from '@/components/ui';
 import { Colors, Spacing } from '@/constants/theme';
 import type { ActivityId } from '@/data/activities';
@@ -151,19 +152,24 @@ function LinkList({ title, links }: { title: string; links: LocalLink[] }) {
   );
 }
 
-/** Live cams and local fishing or surf reports for the spot's area. */
+/** Live cams, local fishing or surf reports, and nearby marinas/shops/food for the spot's area. */
 export function LocalCard({ spot, activityId }: { spot: Spot; activityId: ActivityId }) {
-  const [open, setOpen] = useState<'cams' | 'report'>();
+  const [open, setOpen] = useState<'cams' | 'report' | 'nearby'>();
   const near = nearestArea(spot.lat, spot.lon);
-  if (!near) return null;
-  const { area, exact } = near;
-  const report = activityId === 'surfing' ? area.surfing : area.fishing;
+  const area = near?.area;
+  const report = !area ? [] : activityId === 'surfing' ? area.surfing : area.fishing;
   const reportName = activityId === 'surfing' ? 'surf' : 'fishing';
-  const where = exact ? spot.name : `the ${area.name} area`;
+  const where = near?.exact || !area ? spot.name : `the ${area.name} area`;
   return (
     <Card>
       <View style={styles.buttons}>
-        {area.cams.length ? (
+        <Pressable onPress={() => setOpen(open === 'nearby' ? undefined : 'nearby')} style={[styles.btn, open === 'nearby' && styles.btnOn]} accessibilityRole="button" accessibilityState={{ expanded: open === 'nearby' }}>
+          <Icon name="mappin.and.ellipse" size={14} color={open === 'nearby' ? C.background : C.accent} />
+          <ThemedText type="smallBold" style={{ color: open === 'nearby' ? C.background : C.text }}>
+            {nearbyLabel(activityId)}
+          </ThemedText>
+        </Pressable>
+        {area?.cams.length ? (
           <Pressable onPress={() => setOpen(open === 'cams' ? undefined : 'cams')} style={[styles.btn, open === 'cams' && styles.btnOn]} accessibilityRole="button">
             <Icon name="video" size={14} color={open === 'cams' ? C.background : C.accent} />
             <ThemedText type="smallBold" style={{ color: open === 'cams' ? C.background : C.text }}>
@@ -180,7 +186,8 @@ export function LocalCard({ spot, activityId }: { spot: Spot; activityId: Activi
           </Pressable>
         ) : null}
       </View>
-      {open === 'cams' ? <LinkList title={`Live cams near ${where}`} links={area.cams} /> : null}
+      {open === 'nearby' ? <NearbyPanel key={`${spot.id}:${activityId}`} spot={spot} activityId={activityId} /> : null}
+      {open === 'cams' && area ? <LinkList title={`Live cams near ${where}`} links={area.cams} /> : null}
       {open === 'report' ? <LinkList title={`Local ${reportName} report for ${where}`} links={report} /> : null}
     </Card>
   );
