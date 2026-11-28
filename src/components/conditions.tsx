@@ -1,16 +1,20 @@
-import { useEffect, useRef, type ComponentRef } from 'react';
+import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
+import { DayDetail } from '@/components/day-detail';
+import { dayKind, SkyIcon } from '@/components/sky-icon';
 import { Card, Icon, VerdictColor, VerdictPill } from '@/components/ui';
 import { moonInfo } from '@/lib/moon';
 import { Colors, Spacing } from '@/constants/theme';
-import type { Activity } from '@/data/activities';
+import type { Activity, ActivityId } from '@/data/activities';
 import type { Spot } from '@/data/spots';
 import type { DaySummary } from '@/lib/daily';
-import type { Forecast, HourForecast, TideEvent } from '@/lib/forecast';
+import { TrendText } from '@/components/trend-text';
+import type { Forecast, HourForecast, TideEvent, Water } from '@/lib/forecast';
 import { clock, compass, dayLabel, height, temperature, weatherShort, weatherSymbol, weatherText, windSpeed, type Units } from '@/lib/format';
 import { rateHour, VerdictLabel, windRelation } from '@/lib/verdict';
+import { explainDays } from '@/lib/why';
 
 const C = Colors.dark;
 
@@ -224,12 +228,26 @@ export function DailyForecast({
   units,
   utcOffset,
   now,
+  activity,
+  water,
+  forecast,
+  spot,
+  activityInfo,
 }: {
   days: DaySummary[];
   units: Units;
   utcOffset: number;
   now: number;
+  activity: ActivityId;
+  water: Water;
+  /** With these, tapping a day opens its hour-by-hour details. */
+  forecast?: Forecast;
+  spot?: Spot;
+  activityInfo?: Activity;
 }) {
+  const whys = explainDays(days, activity, units, water, utcOffset, now);
+  const [open, setOpen] = useState<number | null>(null);
+  const tappable = !!(forecast && spot && activityInfo);
   return (
     <Card style={styles.daily}>
       {days.map((d, i) => {
@@ -237,59 +255,103 @@ export function DailyForecast({
           d.windMin != null && d.windMax != null && Math.round(d.windMin) !== Math.round(d.windMax)
             ? `${windSpeed(d.windMin, units).split(' ')[0]} to ${windSpeed(d.windMax, units)}`
             : windSpeed(d.windMax, units);
+        const why = whys[i];
         return (
-          <View key={d.time} style={[styles.dayRow, i > 0 && styles.dayDivider]}>
-            <View style={styles.dayName}>
-              <ThemedText type="smallBold">{dayLabel(d.time, utcOffset, now)}</ThemedText>
-              <Icon name={weatherSymbol(d.weatherCode, true)} size={22} color={C.text} />
-              <ThemedText type="small" themeColor="textSecondary">
-                {weatherText(d.weatherCode)}
-              </ThemedText>
-            </View>
-            <View style={styles.dayMiddle}>
-              {d.verdict ? (
-                <View style={styles.dayVerdict}>
-                  <VerdictPill verdict={d.verdict} />
-                  {d.window ? (
-                    <ThemedText type="smallBold" style={[styles.noWrap, { color: VerdictColor[d.window.verdict] }]}>
-                      {VerdictLabel[d.window.verdict]} {clock(d.window.start, utcOffset)} to {clock(d.window.end, utcOffset)}
-                    </ThemedText>
-                  ) : d.best && d.verdict !== 'nogo' ? (
-                    <ThemedText type="small" themeColor="textSecondary">
-                      best {clock(d.best.hour.time, utcOffset)}
-                    </ThemedText>
-                  ) : null}
+          <Pressable
+            key={d.time}
+            disabled={!tappable}
+            onPress={() => setOpen(i)}
+            accessibilityRole={tappable ? 'button' : undefined}
+            accessibilityHint={tappable ? 'Opens hour-by-hour details for this day' : undefined}
+            style={({ pressed }) => [styles.dayBlock, i > 0 && styles.dayDivider, pressed && styles.dayPressed]}>
+            <View style={styles.dayRow}>
+              <View style={styles.dayName}>
+                <ThemedText type="smallBold">{dayLabel(d.time, utcOffset, now)}</ThemedText>
+                {dayKind(d) ? (
+                  <SkyIcon kind={dayKind(d)} size={26} />
+                ) : (
+                  <Icon name={weatherSymbol(d.weatherCode, true)} size={22} color={C.text} />
+                )}
+                <ThemedText type="small" themeColor="textSecondary">
+                  {weatherText(d.weatherCode)}
+                </ThemedText>
+              </View>
+              <View style={styles.dayMiddle}>
+                {d.trend ? (
+                  <View style={styles.dayVerdict}>
+                    <VerdictPill verdict={d.trend[0].verdict} />
+                    <TrendText steps={d.trend} utcOffset={utcOffset} afterPill />
+                  </View>
+                ) : d.verdict ? (
+                  <View style={styles.dayVerdict}>
+                    <VerdictPill verdict={d.verdict} />
+                    {d.window ? (
+                      <ThemedText type="smallBold" style={[styles.noWrap, { color: VerdictColor[d.window.verdict] }]}>
+                        {VerdictLabel[d.window.verdict]} {clock(d.window.start, utcOffset)} to {clock(d.window.end, utcOffset)}
+                      </ThemedText>
+                    ) : d.best && d.verdict !== 'nogo' ? (
+                      <ThemedText type="small" themeColor="textSecondary">
+                        best {clock(d.best.hour.time, utcOffset)}
+                      </ThemedText>
+                    ) : null}
+                  </View>
+                ) : (
+                  <ThemedText type="small" themeColor="textSecondary">
+                    After dark
+                  </ThemedText>
+                )}
+                <View style={styles.rain}>
+                  {d.windDir != null ? <WindArrow deg={d.windDir} size={11} /> : null}
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Wind {compass(d.windDir)} {wind}
+                  </ThemedText>
                 </View>
-              ) : (
                 <ThemedText type="small" themeColor="textSecondary">
-                  After dark
+                  Seas to {height(d.waveMax, units)}
                 </ThemedText>
-              )}
-              <View style={styles.rain}>
-                {d.windDir != null ? <WindArrow deg={d.windDir} size={11} /> : null}
-                <ThemedText type="small" themeColor="textSecondary">
-                  Wind {compass(d.windDir)} {wind}
-                </ThemedText>
+                <View style={styles.rain}>
+                  <Icon name="drop.fill" size={11} color={C.accent} />
+                  <ThemedText type="small" style={{ color: C.accent }}>
+                    {d.precipChance != null ? `${d.precipChance}% chance of rain` : 'Rain chance unavailable'}
+                  </ThemedText>
+                </View>
               </View>
-              <ThemedText type="small" themeColor="textSecondary">
-                Seas to {height(d.waveMax, units)}
-              </ThemedText>
-              <View style={styles.rain}>
-                <Icon name="drop.fill" size={11} color={C.accent} />
-                <ThemedText type="small" style={{ color: C.accent }}>
-                  {d.precipChance != null ? `${d.precipChance}% chance of rain` : 'Rain chance unavailable'}
+              <View style={styles.dayTemps}>
+                <ThemedText type="smallBold">{temperature(d.high, units)}</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  {temperature(d.low, units)}
                 </ThemedText>
               </View>
             </View>
-            <View style={styles.dayTemps}>
-              <ThemedText type="smallBold">{temperature(d.high, units)}</ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                {temperature(d.low, units)}
+            {why ? (
+              <ThemedText type="small" themeColor="textSecondary" style={styles.dayWhy}>
+                {why.lead ? <ThemedText type="smallBold">{why.lead} </ThemedText> : null}
+                {why.text}
+                {tappable ? <ThemedText type="smallBold" style={{ color: C.accent }}> Details ›</ThemedText> : null}
               </ThemedText>
-            </View>
-          </View>
+            ) : tappable ? (
+              <ThemedText type="smallBold" style={{ color: C.accent }}>
+                Details ›
+              </ThemedText>
+            ) : null}
+          </Pressable>
         );
       })}
+      {tappable ? (
+        <DayDetail
+          index={open}
+          days={days}
+          whys={whys}
+          forecast={forecast!}
+          spot={spot!}
+          activity={activityInfo!}
+          units={units}
+          water={water}
+          now={now}
+          onChange={setOpen}
+          onClose={() => setOpen(null)}
+        />
+      ) : null}
     </Card>
   );
 }
@@ -319,7 +381,10 @@ const styles = StyleSheet.create({
   dot: { width: 12, height: 12, borderRadius: 6 },
   rain: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   daily: { paddingVertical: Spacing.one, gap: 0 },
-  dayRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingVertical: 10 },
+  dayBlock: { paddingVertical: 10, gap: 6 },
+  dayRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
+  dayWhy: { lineHeight: 19 },
+  dayPressed: { backgroundColor: C.backgroundSelected },
   dayDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border },
   dayName: { width: 88, gap: 4 },
   dayMiddle: { flex: 1, gap: 4 },

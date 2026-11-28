@@ -71,7 +71,9 @@ export function rateHour(hour: HourForecast, activity: Activity, spot: Spot): Ho
       reason: `Gusts to ${Math.round(hour.gusts)} kt`,
     });
     // Gusts far above the steady wind make for a bumpy, unpredictable day.
-    if (hour.wind != null && hour.gusts > r.wind.good && hour.gusts - hour.wind >= 10) {
+    // Not on Inshore: there the wind is the town's, and over land the model's gusts run far above the
+    // steady wind even when the sound is calm.
+    if (!hour.sheltered && hour.wind != null && hour.gusts > r.wind.good && hour.gusts - hour.wind >= 10) {
       checks.push({ name: 'gusty', value: 0.5, reason: `Gusty, ${Math.round(hour.gusts - hour.wind)} kt above the wind` });
     }
   }

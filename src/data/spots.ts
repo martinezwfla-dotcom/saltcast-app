@@ -9,6 +9,8 @@ export type Spot = {
   /** A point just offshore, used for the marine forecast. */
   lat: number;
   lon: number;
+  /** Optional point for the Inshore forecast (inside the bay or sound), when stepping back from the beach isn't right. */
+  inshore?: { lat: number; lon: number };
   /** Compass bearing the beach faces, toward open water. Used to tell offshore from onshore wind. */
   facing: number;
   /** NOAA tide prediction station. */
@@ -58,7 +60,7 @@ export const Spots: Spot[] = [
   // Gulf
   { id: 'naples', name: 'Naples', region: 'Gulf', lat: 26.14, lon: -81.83, facing: 270, tideStation: Stations.naples },
   { id: 'fort-myers-beach', name: 'Fort Myers Beach', region: 'Gulf', lat: 26.43, lon: -81.96, facing: 240, tideStation: Stations.fortMyers },
-  { id: 'boca-grande', name: 'Boca Grande', region: 'Gulf', lat: 26.72, lon: -82.36, facing: 255, tideStation: Stations.fortMyers },
+  { id: 'boca-grande', name: 'Boca Grande', region: 'Gulf', lat: 26.72, lon: -82.36, inshore: { lat: 26.82, lon: -82.25 }, facing: 255, tideStation: Stations.fortMyers },
   { id: 'siesta-key', name: 'Siesta Key', region: 'Gulf', lat: 27.27, lon: -82.58, facing: 260, tideStation: Stations.stPete },
   { id: 'st-pete-beach', name: 'St. Pete Beach', region: 'Gulf', lat: 27.72, lon: -82.77, facing: 260, tideStation: Stations.stPete },
   { id: 'clearwater', name: 'Clearwater Beach', region: 'Gulf', lat: 27.98, lon: -82.85, facing: 270, tideStation: Stations.clearwater },
@@ -133,6 +135,7 @@ export function makeCustomSpot(place: Place): Spot {
     region,
     lat,
     lon,
+    inshore: { lat: place.latitude, lon: place.longitude },
     facing,
     tideStation: nearest.tideStation,
     custom: true,

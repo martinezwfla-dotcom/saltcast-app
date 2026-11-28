@@ -8,8 +8,10 @@ import { ForecastCharts } from '@/components/charts';
 import { Welcome } from '@/components/welcome';
 
 import { ConditionsGrid, DailyForecast, HourlyStrip, TideCard } from '@/components/conditions';
+import { TrendText } from '@/components/trend-text';
 import { BuoyCard, LocalCard, SafetyAlerts, WaterPicker } from '@/components/extras';
 import { ThemedText } from '@/components/themed-text';
+import { hourKind, SkyIcon } from '@/components/sky-icon';
 import { ActivityPicker, Card, Disclaimer, Icon, openWebsite, Screen, VerdictPill, WebsiteButton } from '@/components/ui';
 import { Colors, Spacing } from '@/constants/theme';
 import { getActivity } from '@/data/activities';
@@ -18,6 +20,7 @@ import { useForecast } from '@/hooks/use-forecast';
 import { useNow } from '@/hooks/use-now';
 import { findBestWindows } from '@/lib/best-times';
 import { summarizeDays } from '@/lib/daily';
+import { nowLine } from '@/lib/why';
 import { currentHourIndex, waterFor, WaterLabels } from '@/lib/forecast';
 import { clock, compass, height, timeRange, windSpeed } from '@/lib/format';
 import { nearestArea } from '@/data/local';
@@ -111,7 +114,18 @@ export default function TodayScreen() {
               {activity.name} right now · {spot.region}
               {water !== 'near' ? ` · ${WaterLabels[water].label}` : ''}
             </ThemedText>
-            <ThemedText>{rating.reasons.length ? rating.reasons.join(' · ') : 'Conditions look good.'}</ThemedText>
+            <View style={styles.nowLine}>
+              <SkyIcon kind={hourKind(hour)} size={26} />
+              <ThemedText style={{ flexShrink: 1 }}>{nowLine(hour, rating.reasons)}</ThemedText>
+            </View>
+            {days[0]?.trend ? (
+              <View style={styles.nowLine}>
+                <ThemedText type="small" themeColor="textSecondary" style={styles.todayTag}>
+                  TODAY
+                </ThemedText>
+                <TrendText steps={days[0].trend} utcOffset={forecast.utcOffset} />
+              </View>
+            ) : null}
             {offline ? (
               <ThemedText type="small" style={{ color: Colors.dark.maybe }}>
                 No connection. Showing the forecast saved at {clock(forecast.fetchedAt, forecast.utcOffset)}. Pull down to try again.
@@ -185,8 +199,21 @@ export default function TodayScreen() {
 
           <ThemedText type="smallBold">
             {days.length}-day forecast for {activity.name.toLowerCase()}
+            <ThemedText type="small" themeColor="textSecondary">
+              {'  '}Tap a day for hour by hour
+            </ThemedText>
           </ThemedText>
-          <DailyForecast days={days} units={units} utcOffset={forecast.utcOffset} now={now} />
+          <DailyForecast
+            days={days}
+            units={units}
+            utcOffset={forecast.utcOffset}
+            now={now}
+            activity={activityId}
+            water={water}
+            forecast={forecast}
+            spot={spot}
+            activityInfo={activity}
+          />
 
           <ThemedText type="small" themeColor="textSecondary" style={styles.updated}>
             Updated {clock(forecast.fetchedAt, forecast.utcOffset)}. Data from Open-Meteo and NOAA.
@@ -203,6 +230,8 @@ export default function TodayScreen() {
 }
 
 const styles = StyleSheet.create({
+  nowLine: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  todayTag: { letterSpacing: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

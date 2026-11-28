@@ -1,6 +1,6 @@
 import type { Activity } from '@/data/activities';
 import type { Spot } from '@/data/spots';
-import type { Forecast, HourForecast } from '@/lib/forecast';
+import { effectiveCloud, isWetHour, type Forecast, type HourForecast } from '@/lib/forecast';
 import { rateHour, verdictRank, type HourVerdict, type Verdict } from '@/lib/verdict';
 
 export type DaySummary = {
@@ -16,6 +16,13 @@ export type DaySummary = {
   /** Average daylight wind direction, weighted by speed. */
   windDir: number | null;
   waveMax: number | null;
+  gustMax: number | null;
+  /** Daylight sky: 0 sunny to 4 cloudy, and 0 dry, 1 a few showers, 2 showers. */
+  sky: DaySky | null;
+  /** True when any daylight hour has thunderstorms. */
+  storm: boolean;
+  /** Reasons from the hour that set the day's rating, worst first. Used to explain the rating. */
+  reasons: string[];
   /** The best daylight hour for the activity. */
   best?: { hour: HourForecast; rating: HourVerdict };
   /**
@@ -25,7 +32,27 @@ export type DaySummary = {
   verdict?: Verdict;
   /** The longest daylight stretch at the best hour's verdict, when it beats the day's rating. */
   window?: { start: number; end: number; verdict: Verdict };
+  /**
+   * Today only: how the rating changes over the rest of the daylight, e.g. Favorable now,
+   * Not ideal by 12p, No Go by 3p. Set only when it changes. Same rule as the website.
+   */
+  trend?: TrendStep[];
 };
+
+export type TrendStep = { verdict: Verdict; time: number; now?: boolean };
+
+/** A change has to last 2 hours (or run to sunset) to count, so one odd hour doesn't flip it. */
+function trendOf(rated: { hour: HourForecast; rating: HourVerdict }[], startsNow: boolean): TrendStep[] | undefined {
+  if (rated.length < 2) return undefined;
+  const steps: TrendStep[] = [{ verdict: rated[0].rating.verdict, time: rated[0].hour.time, now: startsNow }];
+  for (let i = 1; i < rated.length; i++) {
+    const v = rated[i].rating.verdict;
+    if (v !== steps[steps.length - 1].verdict && (i === rated.length - 1 || rated[i + 1].rating.verdict === v)) {
+      steps.push({ verdict: v, time: rated[i].hour.time });
+    }
+  }
+  return steps.length > 1 ? steps.slice(0, 4) : undefined;
+}
 
 const max = (xs: (number | null)[]) => {
   const v = xs.filter((x): x is number => x != null);
@@ -57,6 +84,24 @@ function dayWeather(hours: HourForecast[]) {
   for (const c of codes) counts.set(c, (counts.get(c) ?? 0) + 1);
   // Most common code; ties go to the wetter or cloudier one.
   return [...counts.entries()].sort((a, b) => b[1] - a[1] || b[0] - a[0])[0][0];
+}
+
+export type DaySky = { level: number | null; rain: 0 | 1 | 2 };
+
+/** Average daylight cloud cover (weather codes when it is missing) and how many hours have showers. */
+function daySky(hours: HourForecast[]): DaySky | null {
+  if (!hours.length) return null;
+  const v = hours.map(effectiveCloud).filter((x): x is number => x != null);
+  const mean = v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+  const wet = hours.filter(isWetHour).length;
+  const level = mean == null ? null : mean < 15 ? 0 : mean < 35 ? 1 : mean < 65 ? 2 : mean < 85 ? 3 : 4;
+  return { level, rain: wet >= Math.max(3, hours.length * 0.4) ? 2 : wet > 0 ? 1 : 0 };
+}
+
+/** Reasons from the lowest-scoring hour with the day's verdict. */
+function worstReasons(rated: { rating: HourVerdict }[], verdict: Verdict) {
+  const same = rated.filter((r) => r.rating.verdict === verdict).sort((a, b) => a.rating.score - b.rating.score);
+  return same[0]?.rating.reasons ?? [];
 }
 
 /** Groups the forecast into the spot's local days, starting with today. */
@@ -127,9 +172,14 @@ export function summarizeDays(forecast: Forecast, activity: Activity, spot: Spot
         windMax: max(pick.map((h) => h.wind)),
         windDir: averageDirection(pick),
         waveMax: max(pick.map((h) => h.waveHeight)),
+        gustMax: max(pick.map((h) => h.gusts)),
+        sky: daySky(pick),
+        storm: pick.some((h) => h.weatherCode != null && h.weatherCode >= 95),
+        reasons: worst ? worstReasons(rated, worst.rating.verdict) : [],
         best,
         verdict,
         window,
+        trend: d === today ? trendOf(rated, relevant.length > 0 && relevant[0].isDay) : undefined,
       };
     });
 }
